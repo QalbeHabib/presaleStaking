@@ -2,17 +2,16 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
+// Import SaleBase 
+import "./SaleBase.sol";
 
 /**
  * @title Staking Manager Contract
  * @notice This contract handles token staking functionality
  */
-contract StakingManager is ReentrancyGuard, Ownable {
-    using SafeMath for uint256;
-    
+contract StakingManager is SaleBase {
     // Keep some constants to maintain internal functionality
     uint256 internal constant TOKEN_DECIMALS_INT = 10**18;
     uint256 internal constant PERCENT_DENOMINATOR_INT = 100;
@@ -25,8 +24,8 @@ contract StakingManager is ReentrancyGuard, Ownable {
     bool public stakingActive;
     uint256 public totalStakingRewardsIssued;
     
-    // Maximum staking rewards allocation
-    uint256 private _maxStakingRewards; // Changed to private to avoid duplicate variable with SaleBase
+    // Maximum staking rewards allocation (shadows the one in SaleBase)
+    uint256 private _maxStakingRewards;
     
     // Staking data structure
     struct StakeInfo {
@@ -39,9 +38,6 @@ contract StakingManager is ReentrancyGuard, Ownable {
     // Staking system mappings
     mapping(address => StakeInfo) public userStakes;
 
-    // Token address
-    address public immutable saleToken;
-    
     // New Staking Events
     event TokensStaked(
         address indexed user, 
@@ -69,45 +65,38 @@ contract StakingManager is ReentrancyGuard, Ownable {
     );
     
     /**
-     * @dev Constructor sets up staking parameters
-     * @param _saleToken Token address used for staking
-     * @param _totalTokenSupply Total token supply for calculating staking allocation
+     * @dev Constructor initializes staking parameters
+     * @param _oracle Chainlink oracle for ETH price feed
+     * @param _usdt USDT token address
+     * @param _saleToken Sale token address
+     * @param _MinTokenTobuy Minimum tokens that can be purchased
+     * @param _totalTokenSupply Total token supply
      */
     constructor(
+        address _oracle,
+        address _usdt,
         address _saleToken,
+        uint256 _MinTokenTobuy,
         uint256 _totalTokenSupply
-    ) {
-        require(_saleToken != address(0), "Sale token address cannot be zero");
-        require(_totalTokenSupply > 0, "Total supply must be greater than zero");
-        
-        saleToken = _saleToken;
-        
+    ) 
+        SaleBase(_oracle, _usdt, _saleToken, _MinTokenTobuy, _totalTokenSupply) 
+    {
         // Initialize staking parameters
         stakingCap = 6666666667 * TOKEN_DECIMALS_INT; // 6,666,666,667 tokens
         stakingActive = true; // Staking is active by default
         
         // Calculate maximum staking rewards (20% of total supply)
-        _maxStakingRewards = _totalTokenSupply.mul(20).div(PERCENT_DENOMINATOR_INT);
+        _maxStakingRewards = _totalTokenSupply * 20 / PERCENT_DENOMINATOR_INT;
     }
     
     /**
-     * Provide an accessor for maxStakingRewards
+     * @dev Maximum available tokens for staking rewards (20% of total supply)
+     * @return The maximum number of tokens available for staking rewards
      */
-    function maxStakingRewards() public view virtual returns (uint256) {
+    function maxStakingRewards() public view override returns (uint256) {
         return _maxStakingRewards;
     }
     
-    /**
-     * @dev Initialize staking parameters
-     * @param _totalSupply Total token supply to calculate 20% for staking rewards
-     */
-    function initializeStaking(uint256 _totalSupply) external onlyOwner {
-        require(_totalSupply > 0, "Invalid total supply");
-        _maxStakingRewards = _totalSupply.mul(20).div(PERCENT_DENOMINATOR_INT); // 20% of total supply
-        stakingActive = true;
-        emit StakingStatusChanged(true, block.timestamp);
-    }
-
     /**
      * @dev Toggle staking status (active/inactive)
      * @param _status New staking status
@@ -129,20 +118,20 @@ contract StakingManager is ReentrancyGuard, Ownable {
         require(stakingActive, "Staking is not active");
         require(_amount > 0, "Cannot stake zero amount");
         require(
-            totalStaked.add(_amount) <= stakingCap,
+            totalStaked + _amount <= stakingCap,
             "Staking cap would be exceeded"
         );
         
         // Calculate potential rewards to verify we stay within the rewards limit
-        uint256 potentialReward = _amount.mul(STAKING_APY).div(PERCENT_DENOMINATOR_INT);
+        uint256 potentialReward = _amount * STAKING_APY / PERCENT_DENOMINATOR_INT;
         require(
-            totalStakingRewardsIssued.add(potentialReward) <= maxStakingRewards(),
+            totalStakingRewardsIssued + potentialReward <= maxStakingRewards(),
             "Not enough tokens in the staking reward pool"
         );
         
         // Update global state for staking
-        totalStaked = totalStaked.add(_amount);
-        totalStakingRewardsIssued = totalStakingRewardsIssued.add(potentialReward);
+        totalStaked = totalStaked + _amount;
+        totalStakingRewardsIssued = totalStakingRewardsIssued + potentialReward;
         
         // Auto-disable staking if cap is reached
         if (totalStaked >= stakingCap) {
@@ -161,13 +150,13 @@ contract StakingManager is ReentrancyGuard, Ownable {
             } else {
                 // Existing stake is unlocked, withdraw it first
                 uint256 stakedAmount = userStake.stakedAmount;
-                uint256 reward = stakedAmount.mul(STAKING_APY).div(PERCENT_DENOMINATOR_INT);
+                uint256 reward = stakedAmount * STAKING_APY / PERCENT_DENOMINATOR_INT;
                 
                 // Mark as withdrawn to prevent double-dipping
                 userStake.hasWithdrawn = true;
                 
                 // Transfer rewards and original stake back
-                bool transferSuccess = IERC20(saleToken).transfer(_user, stakedAmount.add(reward));
+                bool transferSuccess = IERC20(SaleToken).transfer(_user, stakedAmount + reward);
                 require(transferSuccess, "Stake withdrawal failed");
                 
                 emit StakeWithdrawn(_user, stakedAmount, reward, block.timestamp);
@@ -177,7 +166,7 @@ contract StakingManager is ReentrancyGuard, Ownable {
         // Create a new stake
         userStake.stakedAmount = _amount;
         userStake.stakingTimestamp = block.timestamp;
-        userStake.unlockTimestamp = block.timestamp.add(STAKING_LOCK_PERIOD);
+        userStake.unlockTimestamp = block.timestamp + STAKING_LOCK_PERIOD;
         userStake.hasWithdrawn = false;
         
         emit TokensStaked(_user, _amount, block.timestamp, userStake.unlockTimestamp);
@@ -191,20 +180,20 @@ contract StakingManager is ReentrancyGuard, Ownable {
         require(stakingActive, "Staking is not active");
         require(_amount > 0, "Cannot stake zero amount");
         require(
-            totalStaked.add(_amount) <= stakingCap,
+            totalStaked + _amount <= stakingCap,
             "Staking cap would be exceeded"
         );
         
         // Calculate potential rewards to verify we stay within the rewards limit
-        uint256 potentialReward = _amount.mul(STAKING_APY).div(PERCENT_DENOMINATOR_INT);
+        uint256 potentialReward = _amount * STAKING_APY / PERCENT_DENOMINATOR_INT;
         require(
-            totalStakingRewardsIssued.add(potentialReward) <= maxStakingRewards(),
+            totalStakingRewardsIssued + potentialReward <= maxStakingRewards(),
             "Not enough tokens in the staking reward pool"
         );
         
         // Update global state
-        totalStaked = totalStaked.add(_amount);
-        totalStakingRewardsIssued = totalStakingRewardsIssued.add(potentialReward);
+        totalStaked = totalStaked + _amount;
+        totalStakingRewardsIssued = totalStakingRewardsIssued + potentialReward;
         
         // Auto-disable staking if cap is reached
         if (totalStaked >= stakingCap) {
@@ -224,36 +213,36 @@ contract StakingManager is ReentrancyGuard, Ownable {
             
             // Withdraw previous stake first (internally)
             uint256 stakedAmount = userStake.stakedAmount;
-            uint256 reward = stakedAmount.mul(STAKING_APY).div(PERCENT_DENOMINATOR_INT);
+            uint256 reward = stakedAmount * STAKING_APY / PERCENT_DENOMINATOR_INT;
             
             // Mark as withdrawn to prevent double-dipping
             userStake.hasWithdrawn = true;
             
             // Transfer rewards and original stake back
-            bool transferSuccess = IERC20(saleToken).transfer(msg.sender, stakedAmount.add(reward));
+            bool transferSuccess = IERC20(SaleToken).transfer(msg.sender, stakedAmount + reward);
             require(transferSuccess, "Token transfer failed");
             
             // Create a new stake
             userStake.stakedAmount = _amount;
             userStake.stakingTimestamp = block.timestamp;
-            userStake.unlockTimestamp = block.timestamp.add(STAKING_LOCK_PERIOD);
+            userStake.unlockTimestamp = block.timestamp + STAKING_LOCK_PERIOD;
             userStake.hasWithdrawn = false;
         } else {
             // First time stake or previous stake was withdrawn
             userStake.stakedAmount = _amount;
             userStake.stakingTimestamp = block.timestamp;
-            userStake.unlockTimestamp = block.timestamp.add(STAKING_LOCK_PERIOD);
+            userStake.unlockTimestamp = block.timestamp + STAKING_LOCK_PERIOD;
             userStake.hasWithdrawn = false;
         }
         
         // Transfer tokens from user to contract (SafeERC20 pattern)
-        uint256 balanceBefore = IERC20(saleToken).balanceOf(address(this));
-        bool transferFromSuccess = IERC20(saleToken).transferFrom(msg.sender, address(this), _amount);
+        uint256 balanceBefore = IERC20(SaleToken).balanceOf(address(this));
+        bool transferFromSuccess = IERC20(SaleToken).transferFrom(msg.sender, address(this), _amount);
         require(transferFromSuccess, "Token transfer failed");
         
         // Verify tokens were actually received (protection against fee-on-transfer tokens)
-        uint256 balanceAfter = IERC20(saleToken).balanceOf(address(this));
-        require(balanceAfter >= balanceBefore.add(_amount), "Incorrect amount of tokens received");
+        uint256 balanceAfter = IERC20(SaleToken).balanceOf(address(this));
+        require(balanceAfter >= balanceBefore + _amount, "Incorrect amount of tokens received");
         
         emit TokensStaked(msg.sender, _amount, block.timestamp, userStake.unlockTimestamp);
     }
@@ -272,23 +261,23 @@ contract StakingManager is ReentrancyGuard, Ownable {
         );
         
         uint256 stakedAmount = userStake.stakedAmount;
-        uint256 reward = stakedAmount.mul(STAKING_APY).div(PERCENT_DENOMINATOR_INT);
-        uint256 totalAmount = stakedAmount.add(reward);
+        uint256 reward = stakedAmount * STAKING_APY / PERCENT_DENOMINATOR_INT;
+        uint256 totalAmount = stakedAmount + reward;
         
         // Mark as withdrawn to prevent double-dipping
         userStake.hasWithdrawn = true;
         
         // Update global state
-        totalStaked = totalStaked.sub(stakedAmount);
+        totalStaked = totalStaked - stakedAmount;
         
         // Verify there are enough tokens in the contract
         require(
-            totalAmount <= IERC20(saleToken).balanceOf(address(this)),
+            totalAmount <= IERC20(SaleToken).balanceOf(address(this)),
             "Not enough tokens in the contract"
         );
         
         // Transfer rewards and original stake
-        bool withdrawSuccess = IERC20(saleToken).transfer(msg.sender, totalAmount);
+        bool withdrawSuccess = IERC20(SaleToken).transfer(msg.sender, totalAmount);
         require(withdrawSuccess, "Token transfer failed");
         
         emit StakeWithdrawn(msg.sender, stakedAmount, reward, block.timestamp);
@@ -309,7 +298,7 @@ contract StakingManager is ReentrancyGuard, Ownable {
     ) {
         StakeInfo storage stake = userStakes[_user];
         bool locked = block.timestamp < stake.unlockTimestamp;
-        uint256 reward = stake.stakedAmount.mul(STAKING_APY).div(PERCENT_DENOMINATOR_INT);
+        uint256 reward = stake.stakedAmount * STAKING_APY / PERCENT_DENOMINATOR_INT;
         
         return (
             stake.stakedAmount,
@@ -318,7 +307,7 @@ contract StakingManager is ReentrancyGuard, Ownable {
             locked,
             stake.hasWithdrawn,
             reward,
-            stake.hasWithdrawn ? 0 : stake.stakedAmount.add(reward)
+            stake.hasWithdrawn ? 0 : stake.stakedAmount + reward
         );
     }
     
@@ -341,7 +330,7 @@ contract StakingManager is ReentrancyGuard, Ownable {
             stakingActive,
             maxStakingRewards(),
             totalStakingRewardsIssued,
-            maxStakingRewards().sub(totalStakingRewardsIssued)
+            maxStakingRewards() - totalStakingRewardsIssued
         );
     }
 
@@ -357,8 +346,8 @@ contract StakingManager is ReentrancyGuard, Ownable {
         uint256 _percentFilled
     ) {
         bool canStake = stakingActive && totalStaked < stakingCap;
-        uint256 remainingCapacity = stakingCap > totalStaked ? stakingCap.sub(totalStaked) : 0;
-        uint256 percentFilled = totalStaked.mul(100).div(stakingCap);
+        uint256 remainingCapacity = stakingCap > totalStaked ? stakingCap - totalStaked : 0;
+        uint256 percentFilled = totalStaked * 100 / stakingCap;
         
         return (canStake, remainingCapacity, percentFilled);
     }
@@ -385,14 +374,14 @@ contract StakingManager is ReentrancyGuard, Ownable {
     function safeWithdraw(address _token, uint256 _amount, address _recipient) external onlyOwner {
         require(_recipient != address(0), "Cannot withdraw to zero address");
         
-        if (_token == saleToken) {
+        if (_token == SaleToken) {
             // Calculate tokens needed for staking rewards
-            uint256 reservedForStaking = totalStaked.mul(STAKING_APY + 100).div(PERCENT_DENOMINATOR_INT);
+            uint256 reservedForStaking = totalStaked * (STAKING_APY + 100) / PERCENT_DENOMINATOR_INT;
             
             // Check we're not withdrawing reserved tokens
             uint256 contractBalance = IERC20(_token).balanceOf(address(this));
             require(
-                contractBalance.sub(_amount) >= reservedForStaking,
+                contractBalance - _amount >= reservedForStaking,
                 "Cannot withdraw tokens reserved for staking rewards"
             );
         }

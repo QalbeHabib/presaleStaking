@@ -3,7 +3,6 @@ import 'hardhat-dependency-compiler';
 import 'hardhat-deploy';
 import '@nomiclabs/hardhat-ethers';
 import '@nomiclabs/hardhat-etherscan';
-import '@pooltogether/hardhat-deploy-markdown-export';
 
 import networks from './hardhat.network';
 

@@ -3,10 +3,11 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 interface Aggregator {
     function latestRoundData()
@@ -25,14 +26,133 @@ interface Aggregator {
  * @title Sale Base Contract
  * @notice This contract handles the core presale and referral functionality
  */
-contract SaleBase is ReentrancyGuard, Ownable {
-    using SafeMath for uint256;
+contract SaleBase is ReentrancyGuard, Ownable, Pausable {
+    using SafeERC20 for IERC20;
     
-    // Named constants for clarity
-    uint256 public constant TOKEN_DECIMALS = 10**18;
-    uint256 public constant SECONDS_PER_DAY = 86400;
-    uint256 public constant DAYS_PER_YEAR = 365;
+    // Constants
     uint256 public constant PERCENT_DENOMINATOR = 100;
+    uint256 public constant REFERRAL_PERCENTAGE = 5; // 5% referral bonus
+    uint256 public constant TOKEN_DECIMALS = 10**18;
+    uint256 internal constant TOKEN_PRICE_PRECISION = 10**18;
+    
+    // State variables
+    address public oracle; // Chainlink oracle address
+    address public usdt; // USDT token address
+    address public SaleToken; // Sale token address
+    uint256 public MinTokenTobuy; // Min tokens to buy
+    uint256 public TotalAmountBought; // Total tokens bought
+    uint256 public TotalUSDTRaised; // Total USDT raised
+    uint256 public TotalReferralAmount; // Total referral rewards
+    uint256 public totalTokenSupply; // Total supply of tokens
+    
+    // Presale structure (renamed from original to avoid duplicates)
+    struct PresaleInfo {
+        uint256 cap; // Max tokens to sell
+        uint256 price; // Price in USDT decimals
+        uint256 sold; // Tokens already sold
+        uint256 startTime; // Start timestamp
+        uint256 endTime; // End timestamp
+        bool ClaimAble; // Tokens can be claimed
+        bool isClosed; // Presale is closed 
+    }
+    
+    // user structure
+    struct User {
+        uint256 TotalBoughtTokens; // Total tokens purchased
+        uint256 TotalPaid; // Total USDT paid
+        uint256 TotalCollectedReferral; // Total referral earned
+        uint256 lastClaimTime; // Last token claim time
+        address[] referredUsers; // Users referred
+        address referrer; // User's referrer
+    }
+    
+    // Array of presales
+    PresaleInfo[] public presales;
+    
+    // User's purchases in each presale
+    mapping(address => mapping(uint256 => uint256)) public UserPresaleBuying;
+    
+    // User's token claims
+    mapping(address => mapping(uint256 => bool)) public Claimed;
+    
+    // User data
+    mapping(address => User) public users;
+    
+    // Whitelist status
+    mapping(address => bool) public isWhitelisted;
+    
+    // Admin addresses
+    mapping(address => bool) public isAdmin;
+    
+    // Events
+    event PresaleStarted(
+        uint256 presaleId, 
+        uint256 cap, 
+        uint256 price, 
+        uint256 startTime, 
+        uint256 endTime
+    );
+    
+    event PresaleEnded(
+        uint256 presaleId, 
+        uint256 endTime
+    );
+    
+    event TokensPurchased(
+        address indexed buyer, 
+        uint256 presaleId, 
+        uint256 amount, 
+        uint256 usdtAmount
+    );
+    
+    event TokensClaimed(
+        address indexed user,
+        uint256 indexed id,
+        uint256 amount,
+        uint256 timestamp
+    );
+    
+    event ReferralProcessed(
+        address indexed referrer, 
+        address indexed referred, 
+        uint256 amount
+    );
+    
+    event WhitelistStatusChanged(
+        address indexed user, 
+        bool isWhitelisted, 
+        uint256 timestamp
+    );
+    
+    event AdminStatusChanged(
+        address indexed user, 
+        bool isAdmin, 
+        uint256 timestamp
+    );
+    
+    event OracleUpdated(
+        address previousOracle, 
+        address newOracle, 
+        uint256 timestamp
+    );
+    
+    event PresaleClaimableStatusChanged(
+        uint256 presaleId, 
+        bool isClaimable, 
+        uint256 timestamp
+    );
+    
+    event PresaleClosedStatusChanged(
+        uint256 presaleId, 
+        bool isClosed, 
+        uint256 timestamp
+    );
+    
+    event MinTokensToUSDT(
+        uint256 previousMinimum, 
+        uint256 newMinimum, 
+        uint256 timestamp
+    );
     
     uint256 public presaleId;
     uint256 public USDT_MULTIPLIER;
@@ -45,7 +165,6 @@ contract SaleBase is ReentrancyGuard, Ownable {
     uint256 public constant STAKING_ALLOCATION_PERCENT = 20;
     
     // Total supply and allocations
-    uint256 public totalTokenSupply;
     uint256 public presaleTokens;
     uint256 public maxReferralRewards;
     uint256 private _maxStakingRewards; // Private state variable instead
@@ -61,6 +180,7 @@ contract SaleBase is ReentrancyGuard, Ownable {
     uint256 public referralPercentageChangeTimeLock;
     uint256 public constant REFERRAL_CHANGE_TIMELOCK = 24 hours;
 
+    // Presale structure (used in actual implementation)
     struct Presale {
         uint256 startTime;
         uint256 endTime;
@@ -103,9 +223,6 @@ contract SaleBase is ReentrancyGuard, Ownable {
     mapping(address => bool) public hasQualifiedPurchase; // Track if user has purchased enough to qualify as referrer
     mapping(address => bool) public hasUsedReferral; // Prevent using multiple referrals
 
-    uint256 public MinTokenTobuy;
-    address public SaleToken;
-
     // Mapping to track users who want to stake ALL their tokens upon claim
     mapping(address => bool) public userStakingIntent;
 
@@ -137,7 +254,7 @@ contract SaleBase is ReentrancyGuard, Ownable {
         uint256 timestamp
     );
 
-    event TokensClaimed(
+    event TokensClaimedWithTimestamp(
         address indexed user,
         uint256 indexed id,
         uint256 amount,
@@ -181,12 +298,12 @@ contract SaleBase is ReentrancyGuard, Ownable {
     );
 
     /**
-     * @dev Constructor sets up the contract parameters
+     * @dev Constructor initializes the sale parameters
      * @param _oracle Chainlink oracle for ETH price feed
      * @param _usdt USDT token address
      * @param _SaleToken Sale token address
      * @param _MinTokenTobuy Minimum tokens that can be purchased
-     * @param _totalTokenSupply Total token supply (100,000,000,000)
+     * @param _totalTokenSupply Total token supply
      */
     constructor(
         address _oracle,
@@ -194,7 +311,20 @@ contract SaleBase is ReentrancyGuard, Ownable {
         address _SaleToken,
         uint256 _MinTokenTobuy,
         uint256 _totalTokenSupply
-    ) Ownable() {
+    ) Ownable(msg.sender) {
+        _initialize(_oracle, _usdt, _SaleToken, _MinTokenTobuy, _totalTokenSupply);
+    }
+    
+    /**
+     * @dev Internal initialization function to initialize without calling Ownable
+     */
+    function _initialize(
+        address _oracle,
+        address _usdt,
+        address _SaleToken,
+        uint256 _MinTokenTobuy,
+        uint256 _totalTokenSupply
+    ) internal {
         require(_oracle != address(0), "Oracle address cannot be zero");
         require(_usdt != address(0), "USDT address cannot be zero");
         require(_SaleToken != address(0), "Sale token address cannot be zero");
@@ -213,9 +343,9 @@ contract SaleBase is ReentrancyGuard, Ownable {
         totalTokenSupply = _totalTokenSupply;
         
         // Calculate allocations
-        presaleTokens = _totalTokenSupply.mul(PRESALE_ALLOCATION_PERCENT).div(PERCENT_DENOMINATOR); // 30% for presale
-        maxReferralRewards = _totalTokenSupply.mul(REFERRAL_ALLOCATION_PERCENT).div(PERCENT_DENOMINATOR); // 5% for referrals
-        _maxStakingRewards = _totalTokenSupply.mul(STAKING_ALLOCATION_PERCENT).div(PERCENT_DENOMINATOR); // 20% for staking rewards
+        presaleTokens = _totalTokenSupply * PRESALE_ALLOCATION_PERCENT / PERCENT_DENOMINATOR; // 30% for presale
+        maxReferralRewards = _totalTokenSupply * REFERRAL_ALLOCATION_PERCENT / PERCENT_DENOMINATOR; // 5% for referrals
+        _maxStakingRewards = _totalTokenSupply * STAKING_ALLOCATION_PERCENT / PERCENT_DENOMINATOR; // 20% for staking rewards
     }
     
     /**
@@ -235,7 +365,7 @@ contract SaleBase is ReentrancyGuard, Ownable {
         require(SaleToken != address(0), "Sale token not set");
         
         // Calculate total tokens needed
-        uint256 totalRequired = presaleTokens.add(maxReferralRewards).add(_maxStakingRewards);
+        uint256 totalRequired = presaleTokens + maxReferralRewards + _maxStakingRewards;
         
         // Check contract balance
         uint256 contractBalance = IERC20(SaleToken).balanceOf(address(this));
@@ -253,7 +383,7 @@ contract SaleBase is ReentrancyGuard, Ownable {
      */
     function updateMaxReferralRewards(uint256 _totalSupply) external onlyOwner {
         require(_totalSupply > 0, "Invalid total supply");
-        maxReferralRewards = _totalSupply.mul(REFERRAL_ALLOCATION_PERCENT).div(PERCENT_DENOMINATOR);
+        maxReferralRewards = _totalSupply * REFERRAL_ALLOCATION_PERCENT / PERCENT_DENOMINATOR;
     }
 
     /**
@@ -265,7 +395,7 @@ contract SaleBase is ReentrancyGuard, Ownable {
         require(block.timestamp >= referralPercentageChangeTimeLock, "Timelock active");
         
         // Set new timelock for future changes
-        referralPercentageChangeTimeLock = block.timestamp.add(REFERRAL_CHANGE_TIMELOCK);
+        referralPercentageChangeTimeLock = block.timestamp + REFERRAL_CHANGE_TIMELOCK;
         
         uint256 oldPercentage = referralRewardPercentage;
         referralRewardPercentage = _percentage;
@@ -310,22 +440,22 @@ contract SaleBase is ReentrancyGuard, Ownable {
         address referrer = referralData[_user].referrer;
         if (referrer != address(0) && _tokenAmount >= MINIMUM_PURCHASE_FOR_REFERRAL) {
             // Calculate rewards (both get the same percentage)
-            uint256 referrerReward = _tokenAmount.mul(referralRewardPercentage).div(REFERRAL_DENOMINATOR);
+            uint256 referrerReward = _tokenAmount * referralRewardPercentage / REFERRAL_DENOMINATOR;
             uint256 refereeReward = referrerReward; // Same reward for both parties
             
             // Check against the max referral rewards cap
-            uint256 totalNewRewards = referrerReward.add(refereeReward);
-            if (totalReferralRewardsIssued.add(totalNewRewards) <= maxReferralRewards) {
+            uint256 totalNewRewards = referrerReward + refereeReward;
+            if (totalReferralRewardsIssued + totalNewRewards <= maxReferralRewards) {
                 // Update referrer's rewards
                 referralData[referrer].totalReferralRewards = 
-                    referralData[referrer].totalReferralRewards.add(referrerReward);
+                    referralData[referrer].totalReferralRewards + referrerReward;
                 
                 // Update referee's rewards
                 referralData[_user].totalReferralRewards = 
-                    referralData[_user].totalReferralRewards.add(refereeReward);
+                    referralData[_user].totalReferralRewards + refereeReward;
                 
                 // Update total rewards issued
-                totalReferralRewardsIssued = totalReferralRewardsIssued.add(totalNewRewards);
+                totalReferralRewardsIssued = totalReferralRewardsIssued + totalNewRewards;
                 
                 emit ReferralRewardsAdded(
                     referrer, 
@@ -344,7 +474,7 @@ contract SaleBase is ReentrancyGuard, Ownable {
      */
     function getClaimableReferralRewards(address _user) public view returns (uint256) {
         ReferralData memory data = referralData[_user];
-        return data.totalReferralRewards.sub(data.claimedReferralRewards);
+        return data.totalReferralRewards - data.claimedReferralRewards;
     }
 
     /**
@@ -362,7 +492,7 @@ contract SaleBase is ReentrancyGuard, Ownable {
         
         // Update claimed amount
         referralData[msg.sender].claimedReferralRewards = 
-            referralData[msg.sender].claimedReferralRewards.add(amount);
+            referralData[msg.sender].claimedReferralRewards + amount;
         
         // Transfer tokens
         bool success = IERC20(SaleToken).transfer(msg.sender, amount);
@@ -422,7 +552,7 @@ contract SaleBase is ReentrancyGuard, Ownable {
 
     function endPresale() public onlyOwner {
         require(
-            presale[presaleId].Active = true,
+            presale[presaleId].Active == true,
             "This presale is already Inactive"
         );
         presale[presaleId].endTime = block.timestamp;
@@ -666,7 +796,7 @@ contract SaleBase is ReentrancyGuard, Ownable {
         bool success = IERC20(SaleToken).transfer(msg.sender, amount);
         require(success, "Token transfer failed");
         
-        emit TokensClaimed(msg.sender, _id, amount, block.timestamp);
+        emit TokensClaimedWithTimestamp(msg.sender, _id, amount, block.timestamp);
         return true;
     }
     
@@ -684,7 +814,7 @@ contract SaleBase is ReentrancyGuard, Ownable {
             data.referrer,
             data.totalReferralRewards,
             data.claimedReferralRewards,
-            data.totalReferralRewards.sub(data.claimedReferralRewards),
+            data.totalReferralRewards - data.claimedReferralRewards,
             hasQualifiedPurchase[_user],
             data.referralCount
         );
@@ -702,7 +832,7 @@ contract SaleBase is ReentrancyGuard, Ownable {
             referralRewardPercentage,
             totalReferralRewardsIssued,
             maxReferralRewards,
-            maxReferralRewards.sub(totalReferralRewardsIssued),
+            maxReferralRewards - totalReferralRewardsIssued,
             referralPercentageChangeTimeLock
         );
     }
@@ -720,7 +850,7 @@ contract SaleBase is ReentrancyGuard, Ownable {
             // Check we're not withdrawing reserved tokens
             uint256 contractBalance = IERC20(_token).balanceOf(address(this));
             require(
-                contractBalance.sub(amount) >= reservedTokens,
+                contractBalance - amount >= reservedTokens,
                 "Cannot withdraw tokens reserved for rewards"
             );
         }

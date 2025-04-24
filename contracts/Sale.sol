@@ -3,9 +3,8 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 // Import our custom contracts
@@ -24,15 +23,7 @@ import "./StakingManager.sol";
  *
  * Total: 55% of total supply must be transferred to this contract
  */
-contract Sale is SaleBase, StakingManager {
-    using SafeMath for uint256;
-    
-    // Override the maxStakingRewards to resolve conflicts between base contracts
-    // Use the SaleBase implementation for maxStakingRewards
-    function maxStakingRewards() public view override(SaleBase, StakingManager) returns (uint256) {
-        return SaleBase.maxStakingRewards();
-    }
-    
+contract Sale is StakingManager {
     /**
      * @dev Constructor sets up the contract parameters
      * @param _oracle Chainlink oracle for ETH price feed
@@ -47,9 +38,10 @@ contract Sale is SaleBase, StakingManager {
         address _SaleToken,
         uint256 _MinTokenTobuy,
         uint256 _totalTokenSupply
-    ) SaleBase(_oracle, _usdt, _SaleToken, _MinTokenTobuy, _totalTokenSupply) 
-      StakingManager(_SaleToken, _totalTokenSupply) {
-        // All initialization is done in parent constructors
+    ) 
+      StakingManager(_oracle, _usdt, _SaleToken, _MinTokenTobuy, _totalTokenSupply)
+    {
+        // No additional initialization needed
     }
 
     /**
@@ -246,22 +238,21 @@ contract Sale is SaleBase, StakingManager {
             require(success, "Token transfer failed");
         }
         
-        emit TokensClaimed(msg.sender, _id, amount, block.timestamp);
+        emit TokensClaimedWithTimestamp(msg.sender, _id, amount, block.timestamp);
         return true;
     }
 
     function WithdrawTokens(address _token, uint256 amount) external override onlyOwner {
         if (_token == SaleToken) {
             // Calculate tokens needed for rewards and stakes
-            uint256 reservedTokens = totalReferralRewardsIssued.add(
+            uint256 reservedTokens = totalReferralRewardsIssued +
                 // Staked tokens plus their potential rewards
-                totalStaked.mul(STAKING_APY + 100).div(PERCENT_DENOMINATOR)
-            );
+                totalStaked * (STAKING_APY + 100) / PERCENT_DENOMINATOR;
             
             // Check we're not withdrawing reserved tokens
             uint256 contractBalance = IERC20(_token).balanceOf(address(this));
             require(
-                contractBalance.sub(amount) >= reservedTokens,
+                contractBalance - amount >= reservedTokens,
                 "Cannot withdraw tokens reserved for rewards"
             );
         }

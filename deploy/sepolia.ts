@@ -8,7 +8,8 @@ import { deployAndLog } from '../src/deployAndLog';
 
 // USDT and oracle addresses per network
 const USDT = {
-  11155111: '0x3454C6F3005437D97A77686F6F28cc61E2330Be0', // Sepolia
+  // 11155111: '0x3454C6F3005437D97A77686F6F28cc61E2330Be0', // Sepolia
+  11155111: '0x6b90A06c3042A2D883d192A2A2B814Aa47fbd311', // Sepolia
   1: '0xdac17f958d2ee523a2206206994597c13d831ec7', // Mainnet
 };
 

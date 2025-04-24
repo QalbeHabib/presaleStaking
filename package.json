@@ -18,16 +18,21 @@
     "format": "prettier --config .prettierrc --write \"**/*.{ts,js}\"",
     "format:file": "prettier --config .prettierrc --write",
     "deploy:goerli": "DEPLOY=v1.1.0.goerli hardhat deploy --network goerli",
-    "deploy:sepolia": "DEPLOY=sepolia hardhat deploy --network sepolia"
+    "deploy:sepolia": "DEPLOY=sepolia hardhat deploy --network sepolia",
+    "local": "hardhat node",
+    "test:local": "hardhat run scripts/local-deploy.js --network localhost",
+    "deploy:local": "hardhat run scripts/local-deploy.js --network hardhat",
+    "prefund:check": "hardhat run scripts/debug-prefund.js --network"
   },
   "dependencies": {
     "@chainlink/contracts": "0.4.2",
-    "@openzeppelin/contracts": "4.7.3",
+    "@openzeppelin/contracts": "^5.0.0",
     "find": "0.3.0",
     "glob": "8.0.3"
   },
   "devDependencies": {
     "@ethersproject/hardware-wallets": "5.6.1",
+    "@nomicfoundation/hardhat-toolbox": "^2.0.2",
     "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers",
     "@nomiclabs/hardhat-etherscan": "3.1.0",
     "@types/find": "0.2.1",
@@ -35,6 +40,7 @@
     "chalk": "4.1.2",
     "colors": "1.4.0",
     "debug": "4.3.4",
+    "dotenv": "^16.5.0",
     "ethers": "5.6.9",
     "hardhat": "2.10.1",
     "hardhat-dependency-compiler": "1.1.3",
