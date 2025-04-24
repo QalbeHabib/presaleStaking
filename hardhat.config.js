@@ -4,7 +4,11 @@ require("dotenv").config();
 const infuraApiKey = process.env.INFURA_API_KEY || "";
 const privateKey = process.env.PRIVATE_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"; // Default hardhat account private key
 
-console.log({ infuraApiKey, privateKey: privateKey ? "defined" : "undefined" });
+// Avoid logging sensitive information during deployment
+console.log({
+    infuraApiKey: infuraApiKey ? "defined" : "undefined",
+    privateKey: privateKey ? "defined" : "undefined"
+});
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {

@@ -19,6 +19,7 @@
     "format:file": "prettier --config .prettierrc --write",
     "deploy:goerli": "DEPLOY=v1.1.0.goerli hardhat deploy --network goerli",
     "deploy:sepolia": "DEPLOY=sepolia hardhat deploy --network sepolia",
+    "deploy:localhost": "DEPLOY=localhost hardhat deploy --network localhost",
     "local": "hardhat node",
     "test:local": "hardhat run scripts/local-deploy.js --network localhost",
     "deploy:local": "hardhat run scripts/local-deploy.js --network hardhat",

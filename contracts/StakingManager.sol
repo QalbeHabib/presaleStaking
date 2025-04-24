@@ -65,7 +65,7 @@ contract StakingManager is SaleBase {
     );
     
     /**
-     * @dev Constructor initializes staking parameters
+     * @dev Constructor initializes staking and sale parameters
      * @param _oracle Chainlink oracle for ETH price feed
      * @param _usdt USDT token address
      * @param _saleToken Sale token address
