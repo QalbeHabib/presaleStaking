@@ -5,7 +5,7 @@ async function main() {
     console.log("Deploying contracts with the account:", deployer.address);
 
     // Example values for constructor parameters - replace with your actual values
-    const tokenDecimals = 18;
+    const tokenDecimals = 6;
     const totalSupply = ethers.utils.parseUnits("100000000000", tokenDecimals); // 100 billion tokens
     const minTokenToBuy = ethers.utils.parseUnits("10", tokenDecimals); // 10 tokens minimum purchase
 

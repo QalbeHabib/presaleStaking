@@ -76,6 +76,7 @@ contract Sale is StakingManager {
         uint256 tokens = usdtToTokens(presaleId, usdAmount);
         presale[presaleId].Sold += tokens;
         presale[presaleId].amountRaised += usdAmount;
+        TotalUSDTRaised += usdAmount; // Update total USDT raised
 
         if (isExcludeMinToken[msg.sender] == false) {
             require(tokens >= MinTokenTobuy, "Less than min amount");
@@ -96,8 +97,28 @@ contract Sale is StakingManager {
         );
         require(success, "Token payment failed");
         
-        // Process referral rewards only if referrer is not zero address
+        // Update users mapping with purchase data
+        users[_msgSender()].TotalBoughtTokens += tokens;
+        users[_msgSender()].TotalPaid += usdAmount;
+        users[_msgSender()].lastClaimTime = block.timestamp;
+        
+        // If referrer is valid, update referral relationship
         if (referrer != address(0)) {
+            users[_msgSender()].referrer = referrer;
+            
+            // Add user to referrer's referredUsers array if not already there
+            bool alreadyReferred = false;
+            for (uint i = 0; i < users[referrer].referredUsers.length; i++) {
+                if (users[referrer].referredUsers[i] == _msgSender()) {
+                    alreadyReferred = true;
+                    break;
+                }
+            }
+            if (!alreadyReferred) {
+                users[referrer].referredUsers.push(_msgSender());
+            }
+            
+            // Process referral rewards
             processReferralRewards(_msgSender(), tokens);
         }
         
@@ -162,9 +183,30 @@ contract Sale is StakingManager {
         }
         presale[presaleId].Sold += tokens;
         presale[presaleId].amountRaised += usdAmount;
+        TotalUSDTRaised += usdAmount; // Update total USDT raised
 
-        // Process referral rewards only if referrer is not zero address
+        // Update users mapping with purchase data
+        users[_msgSender()].TotalBoughtTokens += tokens;
+        users[_msgSender()].TotalPaid += usdAmount;
+        users[_msgSender()].lastClaimTime = block.timestamp;
+        
+        // If referrer is valid, update referral relationship
         if (referrer != address(0)) {
+            users[_msgSender()].referrer = referrer;
+            
+            // Add user to referrer's referredUsers array if not already there
+            bool alreadyReferred = false;
+            for (uint i = 0; i < users[referrer].referredUsers.length; i++) {
+                if (users[referrer].referredUsers[i] == _msgSender()) {
+                    alreadyReferred = true;
+                    break;
+                }
+            }
+            if (!alreadyReferred) {
+                users[referrer].referredUsers.push(_msgSender());
+            }
+            
+            // Process referral rewards
             processReferralRewards(_msgSender(), tokens);
         }
 

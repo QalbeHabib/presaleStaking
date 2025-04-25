@@ -64,6 +64,12 @@ async function main() {
     console.log(`Referral Allocation (5%): ${ethers.utils.formatUnits(maxReferralRewards, tokenDecimals)} tokens`);
     console.log(`Staking Allocation (20%): ${ethers.utils.formatUnits(maxStakingRewards, tokenDecimals)} tokens`);
     console.log(`Total Required (55%): ${ethers.utils.formatUnits(totalRequired, tokenDecimals)} tokens`);
+    console.log({
+        presaleTokens: totalRequired.toString(),
+        maxReferralRewards: maxReferralRewards.toString(),
+        maxStakingRewards: maxStakingRewards.toString(),
+        totalRequired: totalRequired.toString()
+    })
 
     console.log("\n--- Transferring Tokens to Sale Contract ---");
     const tx = await testToken.transfer(saleContract.address, totalRequired);
