@@ -26,54 +26,27 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   console.log(`Deploying to chainId: ${chainId}`);
 
   // ===================================================
-  // Deploy Test Tokens
+  // Deploy SaleUtils Library First
   // ===================================================
+  console.log(`\nDeploying SaleUtils library...`);
+  const saleUtils = await deployAndLog('SaleUtils', {
+    from: deployer,
+    args: [],
+    skipIfAlreadyDeployed: true,
+    log: true,
+  });
 
-  // Deploy TestToken
-
-  // console.log(`\nDeploying TestToken contract...`);
-  // const tokenName = "Test Token";
-  // const tokenSymbol = "TEST";
-  // const decimals = 18;
-  const initialSupply = ethers.utils.parseEther('100000000000'); // 100 billion tokens
-
-  // const testToken = await deployAndLog('TestToken', {
-  //   from: deployer,
-  //   args: [tokenName, tokenSymbol, initialSupply],
-  //   skipIfAlreadyDeployed: true,
-  //   log: true,
-  // });
-
-  // console.log(`TestToken deployed at: ${testToken.address}`);
-
-  // Deploy TestUSDT
-
-  // console.log(`\nDeploying TestUSDT contract...`);
-  // const usdtName = "Test USDT";
-  // const usdtSymbol = "TUSDT";
-  // const usdtDecimals = 6; // USDT typically has 6 decimals
-  // const usdtInitialSupply = ethers.utils.parseUnits('100000000000', 6); // 100 billion USDT
-
-  // const testUSDT = await deployAndLog('TestUSDT', {
-  //   from: deployer,
-  //   args: [usdtName, usdtSymbol, usdtInitialSupply],
-  //   skipIfAlreadyDeployed: true,
-  //   log: true,
-  // });
-
-  // console.log(`TestUSDT deployed at: ${testUSDT.address}`);
+  console.log(`SaleUtils deployed at: ${saleUtils.address}`);
 
   // ===================================================
-  // Deploy Sale Contract
+  // Deploy Sale Contract and dependencies
   // ===================================================
 
   // Oracle address (Chainlink ETH/USD price feed)
   const oracleAddress = PRICE_FEED[chainId];
   console.log(`Using oracle address: ${oracleAddress}`);
 
-  // Use the deployed test tokens
-  // const tokenAddress = testToken.address;
-  // const usdtAddress = testUSDT.address;
+  // Token addresses
   const tokenAddress = "0x3d3067687CCf1d0a02f546eEB613F270E0Df59a3";
   const usdtAddress = "0x1679B569c112C40fE04BA89C99D59326De278620";
 
@@ -97,6 +70,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     totalTokenSupply,
   ];
 
+  // Deploy the main Sale contract 
   console.log(`\nDeploying Sale contract...`);
   const sale = await deployAndLog('Sale', {
     from: deployer,
@@ -120,29 +94,18 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   console.log(`\nVerifying contracts on Etherscan...`);
   await verificationDelay();
 
-  // Verify TestToken
-  // try {
-  //   console.log(`\nVerifying TestToken...`);
-  //   await run('verify:verify', {
-  //     address: testToken.address,
-  //     constructorArguments: [tokenName, tokenSymbol, initialSupply.toString()],
-  //   });
-  //   console.log(`TestToken verified successfully!`);
-  // } catch (error) {
-  //   handleVerificationError(error, testToken.address);
-  // }
-
-  // Verify TestUSDT
-  // try {
-  //   console.log(`\nVerifying TestUSDT...`);
-  //   await run('verify:verify', {
-  //     address: testUSDT.address,
-  //     constructorArguments: [usdtName, usdtSymbol, usdtInitialSupply.toString()],
-  //   });
-  //   console.log(`TestUSDT verified successfully!`);
-  // } catch (error) {
-  //   handleVerificationError(error, testUSDT.address);
-  // }
+  // Verify SaleUtils library
+  try {
+    console.log(`\nVerifying SaleUtils library...`);
+    await run('verify:verify', {
+      address: saleUtils.address,
+      constructorArguments: [],
+      contract: "contracts/libraries/SaleUtils.sol:SaleUtils"
+    });
+    console.log(`SaleUtils verified successfully!`);
+  } catch (error) {
+    handleVerificationError(error, saleUtils.address);
+  }
 
   // Verify Sale contract
   try {
@@ -158,7 +121,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
     await run('verify:verify', {
       address: sale.address,
-      constructorArguments: verificationArgs,
+      constructorArguments: verificationArgs
     });
     console.log(`Sale contract verified successfully!`);
   } catch (error) {
@@ -169,35 +132,15 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // Transfer Tokens to Sale Contract
   // ===================================================
 
-  console.log(`\nTransferring tokens to Sale contract...`);
+  console.log(`\nManual steps for token transfer and pre-funding:`);
 
-  // Calculate 55% of total supply for the Sale contract (30% presale + 5% referral + 20% staking)
-
-  // const saleAllocation = initialSupply.mul(55).div(100);
-
-  // try {
-  //   const tokenContract = await ethers.getContractAt("TestToken", tokenAddress);
-  //   await tokenContract.transfer(sale.address, saleAllocation);
-  //   console.log(`Transferred ${ethers.utils.formatEther(saleAllocation)} tokens to Sale contract`);
-
-  //   // Check balance of Sale contract
-  //   const balance = await tokenContract.balanceOf(sale.address);
-  //   console.log(`Sale contract balance: ${ethers.utils.formatEther(balance)} tokens`);
-
-  //   // Pre-fund the contract
-  //   const saleContract = await ethers.getContractAt("Sale", sale.address);
-  //   await saleContract.preFundContract();
-  //   console.log(`Sale contract pre-funded successfully!`);
-  // } catch (error) {
-  //   console.error(`Error transferring tokens to Sale contract:`, error);
-  //   console.log(`\nManual steps needed:`);
-  //   console.log(`1. Transfer ${ethers.utils.formatEther(saleAllocation)} tokens to Sale contract at ${sale.address}`);
-  //   console.log(`2. Call preFundContract() on the Sale contract`);
-  // }
+  // Calculate 55% of total supply for the Sale contract
+  const saleAllocation = totalTokenSupply.mul(55).div(100);
+  console.log(`1. Transfer ${ethers.utils.formatEther(saleAllocation)} tokens to Sale contract at ${sale.address}`);
+  console.log(`2. Call preFundContract() on the Sale contract to enable presale, referral, and staking`);
 
   console.log(`\n=== Deployment Summary ===`);
-  // console.log(`TestToken address: ${testToken.address}`);
-  // console.log(`TestUSDT address: ${testUSDT.address}`);
+  console.log(`SaleUtils library: ${saleUtils.address}`);
   console.log(`Sale contract address: ${sale.address}`);
   console.log(`Oracle address: ${oracleAddress}`);
 

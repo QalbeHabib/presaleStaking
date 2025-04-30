@@ -2,16 +2,15 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-
-// Import SaleBase 
-import "./SaleBase.sol";
+import "./ReferralManager.sol";
 
 /**
  * @title Staking Manager Contract
  * @notice This contract handles token staking functionality
  */
-contract StakingManager is SaleBase {
+contract StakingManager is ReferralManager {
     // Keep some constants to maintain internal functionality
     uint256 internal constant TOKEN_DECIMALS_INT = 10**18;
     uint256 internal constant PERCENT_DENOMINATOR_INT = 100;
@@ -24,19 +23,11 @@ contract StakingManager is SaleBase {
     bool public stakingActive;
     uint256 public totalStakingRewardsIssued;
     
-    // Maximum staking rewards allocation (shadows the one in SaleBase)
-    uint256 private _maxStakingRewards;
-    
-    // Staking data structure
-    struct StakeInfo {
-        uint256 stakedAmount;
-        uint256 stakingTimestamp;
-        uint256 unlockTimestamp;
-        bool hasWithdrawn;
-    }
-    
     // Staking system mappings
-    mapping(address => StakeInfo) public userStakes;
+    mapping(address => ISaleStructs.StakeInfo) public userStakes;
+    
+    // Mapping to track users who want to stake ALL their tokens upon claim
+    mapping(address => bool) public userStakingIntent;
 
     // New Staking Events
     event TokensStaked(
@@ -65,12 +56,7 @@ contract StakingManager is SaleBase {
     );
     
     /**
-     * @dev Constructor initializes staking and sale parameters
-     * @param _oracle Chainlink oracle for ETH price feed
-     * @param _usdt USDT token address
-     * @param _saleToken Sale token address
-     * @param _MinTokenTobuy Minimum tokens that can be purchased
-     * @param _totalTokenSupply Total token supply
+     * @dev Constructor initializes staking parameters
      */
     constructor(
         address _oracle,
@@ -79,27 +65,37 @@ contract StakingManager is SaleBase {
         uint256 _MinTokenTobuy,
         uint256 _totalTokenSupply
     ) 
-        SaleBase(_oracle, _usdt, _saleToken, _MinTokenTobuy, _totalTokenSupply) 
+        ReferralManager(_oracle, _usdt, _saleToken, _MinTokenTobuy, _totalTokenSupply) 
     {
         // Initialize staking parameters
         stakingCap = 6666666667 * TOKEN_DECIMALS_INT; // 6,666,666,667 tokens
         stakingActive = true; // Staking is active by default
-        
-        // Calculate maximum staking rewards (20% of total supply)
-        _maxStakingRewards = _totalTokenSupply * 20 / PERCENT_DENOMINATOR_INT;
     }
     
     /**
-     * @dev Maximum available tokens for staking rewards (20% of total supply)
-     * @return The maximum number of tokens available for staking rewards
+     * @dev Override withdraw to account for staking rewards
      */
-    function maxStakingRewards() public view override returns (uint256) {
-        return _maxStakingRewards;
+    function WithdrawTokens(address _token, uint256 amount) external override onlyOwner {
+        if (_token == SaleToken) {
+            // Calculate tokens needed for rewards and stakes
+            uint256 reservedTokens = totalReferralRewardsIssued +
+                // Staked tokens plus their potential rewards
+                totalStaked * (STAKING_APY + 100) / PERCENT_DENOMINATOR_INT;
+            
+            // Check we're not withdrawing reserved tokens
+            uint256 contractBalance = IERC20(_token).balanceOf(address(this));
+            require(
+                contractBalance - amount >= reservedTokens,
+                "Cannot withdraw tokens reserved for rewards"
+            );
+        }
+        
+        bool success = IERC20(_token).transfer(fundReceiver, amount);
+        require(success, "Token transfer failed");
     }
     
     /**
      * @dev Toggle staking status (active/inactive)
-     * @param _status New staking status
      */
     function setStakingStatus(bool _status) external onlyOwner {
         stakingActive = _status;
@@ -108,10 +104,6 @@ contract StakingManager is SaleBase {
 
     /**
      * @dev Helper function that handles token staking directly during purchase
-     * @param _user Address of the user
-     * @param _amount Amount of tokens to stake
-     * @notice This function is called automatically during purchase if staking is selected
-     * @notice Tokens are locked for 365 days with 200% APY
      */
     function _handleTokenStaking(address _user, uint256 _amount) internal {
         // Ensure staking is active
@@ -140,7 +132,7 @@ contract StakingManager is SaleBase {
         }
         
         // Update user stake
-        StakeInfo storage userStake = userStakes[_user];
+        ISaleStructs.StakeInfo storage userStake = userStakes[_user];
         
         // If user already has a stake, handle appropriately
         if (userStake.stakedAmount > 0 && !userStake.hasWithdrawn) {
@@ -174,7 +166,6 @@ contract StakingManager is SaleBase {
 
     /**
      * @dev Stake tokens with 1-year lock and 200% APY
-     * @param _amount Amount of tokens to stake
      */
     function stakeTokens(uint256 _amount) external nonReentrant {
         require(stakingActive, "Staking is not active");
@@ -202,7 +193,7 @@ contract StakingManager is SaleBase {
         }
         
         // Update user stake
-        StakeInfo storage userStake = userStakes[msg.sender];
+        ISaleStructs.StakeInfo storage userStake = userStakes[msg.sender];
         
         // If user already has a stake, we need special handling
         if (userStake.stakedAmount > 0 && !userStake.hasWithdrawn) {
@@ -251,7 +242,7 @@ contract StakingManager is SaleBase {
      * @dev Withdraw staked tokens and rewards after lock period
      */
     function withdrawStake() external nonReentrant {
-        StakeInfo storage userStake = userStakes[msg.sender];
+        ISaleStructs.StakeInfo storage userStake = userStakes[msg.sender];
         
         require(userStake.stakedAmount > 0, "No stake found");
         require(!userStake.hasWithdrawn, "Already withdrawn");
@@ -285,7 +276,6 @@ contract StakingManager is SaleBase {
     
     /**
      * @dev Get user staking information
-     * @param _user Address of the user
      */
     function getUserStakingInfo(address _user) external view returns (
         uint256 stakedAmount,
@@ -296,7 +286,7 @@ contract StakingManager is SaleBase {
         uint256 potentialReward,
         uint256 totalClaimable
     ) {
-        StakeInfo storage stake = userStakes[_user];
+        ISaleStructs.StakeInfo storage stake = userStakes[_user];
         bool locked = block.timestamp < stake.unlockTimestamp;
         uint256 reward = stake.stakedAmount * STAKING_APY / PERCENT_DENOMINATOR_INT;
         
@@ -336,9 +326,6 @@ contract StakingManager is SaleBase {
 
     /**
      * @dev Quick check if staking is available and capacity info
-     * @return _canStake True if staking is active and cap not reached
-     * @return _remainingCapacity Remaining capacity for staking
-     * @return _percentFilled Percentage of staking capacity filled (0-100)
      */
     function getStakingAvailability() external view returns (
         bool _canStake,
@@ -354,7 +341,6 @@ contract StakingManager is SaleBase {
     
     /**
      * @dev Update staking cap
-     * @param _newCap New staking cap
      */
     function updateStakingCap(uint256 _newCap) external onlyOwner {
         require(_newCap >= totalStaked, "New cap must be >= total staked");
@@ -366,27 +352,10 @@ contract StakingManager is SaleBase {
     }
     
     /**
-     * @dev Safe withdrawal function for accumulated tokens
-     * @param _token Token address
-     * @param _amount Amount to withdraw
-     * @param _recipient Recipient address
+     * @dev Set staking intent for a user
+     * @param _intent Whether to stake tokens upon claim
      */
-    function safeWithdraw(address _token, uint256 _amount, address _recipient) external onlyOwner {
-        require(_recipient != address(0), "Cannot withdraw to zero address");
-        
-        if (_token == SaleToken) {
-            // Calculate tokens needed for staking rewards
-            uint256 reservedForStaking = totalStaked * (STAKING_APY + 100) / PERCENT_DENOMINATOR_INT;
-            
-            // Check we're not withdrawing reserved tokens
-            uint256 contractBalance = IERC20(_token).balanceOf(address(this));
-            require(
-                contractBalance - _amount >= reservedForStaking,
-                "Cannot withdraw tokens reserved for staking rewards"
-            );
-        }
-        
-        bool withdrawSuccess = IERC20(_token).transfer(_recipient, _amount);
-        require(withdrawSuccess, "Token transfer failed");
+    function setStakingIntent(bool _intent) external {
+        userStakingIntent[msg.sender] = _intent;
     }
 } 

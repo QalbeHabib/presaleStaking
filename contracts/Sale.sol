@@ -2,14 +2,10 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-
-// Import our custom contracts
-import "./SaleBase.sol";
 import "./StakingManager.sol";
+import "./libraries/SaleUtils.sol";
+import "./interfaces/ISaleStructs.sol";
 
 /**
  * @title PreSale and Staking Contract
@@ -24,6 +20,23 @@ import "./StakingManager.sol";
  * Total: 55% of total supply must be transferred to this contract
  */
 contract Sale is StakingManager {
+    // Events needed by this contract
+    event TokensBought(
+        address indexed user,
+        uint256 indexed id,
+        address indexed purchaseToken,
+        uint256 tokensBought,
+        uint256 amountPaid,
+        uint256 timestamp
+    );
+    
+    event TokensClaimedWithTimestamp(
+        address indexed user,
+        uint256 indexed id,
+        uint256 amount,
+        uint256 timestamp
+    );
+
     /**
      * @dev Constructor sets up the contract parameters
      * @param _oracle Chainlink oracle for ETH price feed
@@ -69,7 +82,7 @@ contract Sale is StakingManager {
         // Handle referral if provided and not zero address
         if (referrer != address(0)) {
             // Security check to prevent contract-based referrals (potential attack vector)
-            require(!isContract(referrer), "Referrer cannot be a contract");
+            require(!SaleUtils.isContract(referrer), "Referrer cannot be a contract");
             recordReferral(referrer);
         }
 
@@ -116,7 +129,7 @@ contract Sale is StakingManager {
             if (userClaimData[_msgSender()][presaleId].totalAmount > 0) {
                 userClaimData[_msgSender()][presaleId].totalAmount += tokens;
             } else {
-                userClaimData[_msgSender()][presaleId] = ClaimData(0, tokens, 0);
+                userClaimData[_msgSender()][presaleId] = ISaleStructs.ClaimData(0, tokens, 0);
             }
         }
         
@@ -158,7 +171,7 @@ contract Sale is StakingManager {
         // Handle referral if provided and not zero address
         if (referrer != address(0)) {
             // Security check to prevent contract-based referrals
-            require(!isContract(referrer), "Referrer cannot be a contract");
+            require(!SaleUtils.isContract(referrer), "Referrer cannot be a contract");
             recordReferral(referrer);
         }
 
@@ -189,7 +202,7 @@ contract Sale is StakingManager {
             if (userClaimData[_msgSender()][presaleId].totalAmount > 0) {
                 userClaimData[_msgSender()][presaleId].totalAmount += tokens;
             } else {
-                userClaimData[_msgSender()][presaleId] = ClaimData(
+                userClaimData[_msgSender()][presaleId] = ISaleStructs.ClaimData(
                     0, // Last claimed at
                     tokens, // total tokens to be claimed
                     0 // claimed amount
@@ -197,7 +210,7 @@ contract Sale is StakingManager {
             }
         }
 
-        sendValue(payable(fundReceiver), msg.value);
+        SaleUtils.sendValue(payable(fundReceiver), msg.value);
         emit TokensBought(
             _msgSender(),
             presaleId,
@@ -211,12 +224,11 @@ contract Sale is StakingManager {
     }
     
     /**
-     * @dev Modified claim function to handle only non-staked tokens
+     * @dev Claim function to handle only non-staked tokens
      * @param _id Presale id
      */
     function claimAmount(uint256 _id)
         public
-        override
         checkPresaleId(_id)
         returns (bool)
     {
@@ -254,22 +266,15 @@ contract Sale is StakingManager {
         return true;
     }
 
-    function WithdrawTokens(address _token, uint256 amount) external override onlyOwner {
-        if (_token == SaleToken) {
-            // Calculate tokens needed for rewards and stakes
-            uint256 reservedTokens = totalReferralRewardsIssued +
-                // Staked tokens plus their potential rewards
-                totalStaked * (STAKING_APY + 100) / PERCENT_DENOMINATOR;
-            
-            // Check we're not withdrawing reserved tokens
-            uint256 contractBalance = IERC20(_token).balanceOf(address(this));
-            require(
-                contractBalance - amount >= reservedTokens,
-                "Cannot withdraw tokens reserved for rewards"
-            );
+    /**
+     * @dev To claim tokens from multiple presales
+     * @param _ids Array of presale IDs
+     */
+    function claimMultiple(uint256[] calldata _ids) external returns (bool) {
+        require(_ids.length > 0, "Zero ID length");
+        for (uint256 i; i < _ids.length; i++) {
+            require(claimAmount(_ids[i]), "Claim failed");
         }
-        
-        bool success = IERC20(_token).transfer(fundReceiver, amount);
-        require(success, "Token transfer failed");
+        return true;
     }
-}
+} 

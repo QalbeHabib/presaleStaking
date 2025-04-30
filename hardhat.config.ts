@@ -50,7 +50,7 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: optimizerEnabled,
-            runs: 2000,
+            runs: 10000, // Increased optimizer runs
           },
           evmVersion: 'london',
         },
