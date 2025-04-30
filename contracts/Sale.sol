@@ -76,7 +76,7 @@ contract Sale is StakingManager {
         uint256 tokens = usdtToTokens(presaleId, usdAmount);
         presale[presaleId].Sold += tokens;
         presale[presaleId].amountRaised += usdAmount;
-        TotalUSDTRaised += usdAmount; // Update total USDT raised
+        TotalUSDTRaised += usdAmount; 
 
         if (isExcludeMinToken[msg.sender] == false) {
             require(tokens >= MinTokenTobuy, "Less than min amount");
@@ -102,23 +102,8 @@ contract Sale is StakingManager {
         users[_msgSender()].TotalPaid += usdAmount;
         users[_msgSender()].lastClaimTime = block.timestamp;
         
-        // If referrer is valid, update referral relationship
+        // Process referral rewards if referrer is set
         if (referrer != address(0)) {
-            users[_msgSender()].referrer = referrer;
-            
-            // Add user to referrer's referredUsers array if not already there
-            bool alreadyReferred = false;
-            for (uint i = 0; i < users[referrer].referredUsers.length; i++) {
-                if (users[referrer].referredUsers[i] == _msgSender()) {
-                    alreadyReferred = true;
-                    break;
-                }
-            }
-            if (!alreadyReferred) {
-                users[referrer].referredUsers.push(_msgSender());
-            }
-            
-            // Process referral rewards
             processReferralRewards(_msgSender(), tokens);
         }
         
@@ -190,23 +175,8 @@ contract Sale is StakingManager {
         users[_msgSender()].TotalPaid += usdAmount;
         users[_msgSender()].lastClaimTime = block.timestamp;
         
-        // If referrer is valid, update referral relationship
+        // Process referral rewards if referrer is set
         if (referrer != address(0)) {
-            users[_msgSender()].referrer = referrer;
-            
-            // Add user to referrer's referredUsers array if not already there
-            bool alreadyReferred = false;
-            for (uint i = 0; i < users[referrer].referredUsers.length; i++) {
-                if (users[referrer].referredUsers[i] == _msgSender()) {
-                    alreadyReferred = true;
-                    break;
-                }
-            }
-            if (!alreadyReferred) {
-                users[referrer].referredUsers.push(_msgSender());
-            }
-            
-            // Process referral rewards
             processReferralRewards(_msgSender(), tokens);
         }
 

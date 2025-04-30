@@ -414,13 +414,36 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
         require(!hasUsedReferral[msg.sender], "Already used a referral");
         require(hasQualifiedPurchase[_referrer], "Referrer has not qualified");
         
-        // Record the referral relationship
+        // Prevent circular referrals - Check if the referrer was referred by the current user
+        require(referralData[_referrer].referrer != msg.sender, "Circular referral not allowed");
+        
+        // Also check deeper circular referrals by traversing the chain
+        address currentReferrer = referralData[_referrer].referrer;
+        while (currentReferrer != address(0)) {
+            require(currentReferrer != msg.sender, "Circular referral chain detected");
+            currentReferrer = referralData[currentReferrer].referrer;
+        }
+        
+        // Record the referral relationship in both data structures for compatibility
         referralData[msg.sender].referrer = _referrer;
+        users[msg.sender].referrer = _referrer;
         hasUsedReferral[msg.sender] = true;
         
         // Update referrer stats
         referralData[_referrer].hasReferred = true;
         referralData[_referrer].referralCount++;
+        
+        // Add user to referrer's referredUsers array in users struct
+        bool alreadyReferred = false;
+        for (uint i = 0; i < users[_referrer].referredUsers.length; i++) {
+            if (users[_referrer].referredUsers[i] == msg.sender) {
+                alreadyReferred = true;
+                break;
+            }
+        }
+        if (!alreadyReferred) {
+            users[_referrer].referredUsers.push(msg.sender);
+        }
         
         emit ReferralRecorded(_referrer, msg.sender, block.timestamp);
     }
@@ -840,6 +863,76 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
     // Check if a user has a valid referral link to share
     function canReferOthers(address _user) external view returns (bool) {
         return hasQualifiedPurchase[_user];
+    }
+
+    /**
+     * @dev Check if a user can be referred by a specific referrer
+     * @param _referrer The potential referrer
+     * @param _referee The user who would be referred
+     * @return canBeReferred True if the referrer can refer the user
+     * @return reason Reason code if can't be referred (0=can be referred, 1=already has referrer, 2=circular referral, 3=referrer not qualified)
+     */
+    function canBeReferred(address _referrer, address _referee) external view returns (bool canBeReferred, uint8 reason) {
+        // Check if user already has a referrer
+        if (hasUsedReferral[_referee]) {
+            return (false, 1); // Already has a referrer
+        }
+        
+        // Check if referrer is the same as referee (self-referral)
+        if (_referrer == _referee) {
+            return (false, 2); // Self-referral not allowed
+        }
+        
+        // Check if referrer is qualified
+        if (!hasQualifiedPurchase[_referrer]) {
+            return (false, 3); // Referrer not qualified
+        }
+        
+        // Check first level circular referral (A refers B, B tries to refer A)
+        if (referralData[_referrer].referrer == _referee) {
+            return (false, 2); // Circular referral
+        }
+        
+        // Check deeper circular referrals by traversing the chain
+        address currentReferrer = referralData[_referrer].referrer;
+        while (currentReferrer != address(0)) {
+            if (currentReferrer == _referee) {
+                return (false, 2); // Circular referral chain
+            }
+            currentReferrer = referralData[currentReferrer].referrer;
+        }
+        
+        // All checks passed
+        return (true, 0);
+    }
+    
+    /**
+     * @dev Get the entire referral chain for a user
+     * @param _user The user to check
+     * @return referralChain Array of addresses in the referral chain (from user to top referrer)
+     */
+    function getReferralChain(address _user) external view returns (address[] memory) {
+        // Count the depth of the referral chain
+        uint256 chainDepth = 0;
+        address current = _user;
+        
+        while (referralData[current].referrer != address(0)) {
+            chainDepth++;
+            current = referralData[current].referrer;
+        }
+        
+        // Create array to hold the chain
+        address[] memory chain = new address[](chainDepth + 1);
+        
+        // Fill the array
+        chain[0] = _user;
+        current = _user;
+        for (uint256 i = 1; i <= chainDepth; i++) {
+            current = referralData[current].referrer;
+            chain[i] = current;
+        }
+        
+        return chain;
     }
 
     function WithdrawTokens(address _token, uint256 amount) external virtual onlyOwner {
