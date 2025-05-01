@@ -95,6 +95,31 @@ contract StakingManager is ReferralManager {
     }
     
     /**
+     * @dev Safe withdrawal function for accumulated tokens
+     * @param _token Token address
+     * @param _amount Amount to withdraw
+     * @param _recipient Recipient address
+     */
+    function safeWithdraw(address _token, uint256 _amount, address _recipient) external onlyOwner {
+        require(_recipient != address(0), "Cannot withdraw to zero address");
+        
+        if (_token == SaleToken) {
+            // Calculate tokens needed for staking rewards
+            uint256 reservedForStaking = totalStaked * (STAKING_APY + 100) / PERCENT_DENOMINATOR_INT;
+            
+            // Check we're not withdrawing reserved tokens
+            uint256 contractBalance = IERC20(_token).balanceOf(address(this));
+            require(
+                contractBalance - _amount >= reservedForStaking,
+                "Cannot withdraw tokens reserved for staking rewards"
+            );
+        }
+        
+        bool withdrawSuccess = IERC20(_token).transfer(_recipient, _amount);
+        require(withdrawSuccess, "Token transfer failed");
+    }
+    
+    /**
      * @dev Toggle staking status (active/inactive)
      */
     function setStakingStatus(bool _status) external onlyOwner {

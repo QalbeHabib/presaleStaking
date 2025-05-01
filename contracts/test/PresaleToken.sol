@@ -5,10 +5,10 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * @title Test USDT Token
- * @notice Simple ERC20 token for testing purposes with 6 decimals like real USDT
+ * @title Test Token
+ * @notice Simple ERC20 token for testing purposes
  */
-contract TestUSDT is ERC20, Ownable {
+contract PresaleToken is ERC20, Ownable {
     uint8 private _decimals;
 
     /**
@@ -22,7 +22,7 @@ contract TestUSDT is ERC20, Ownable {
         string memory symbol,
         uint256 initialSupply
     ) ERC20(name, symbol) Ownable(msg.sender) {
-        _decimals = 6; // USDT uses 6 decimals
+        _decimals = 18;
         _mint(msg.sender, initialSupply);
     }
 

@@ -137,7 +137,7 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
         // Store total supply
         totalTokenSupply = _totalTokenSupply;
         
-        // Calculate allocations - 30% for presale, 5% for referrals, 20% for staking
+        // Calculate allocations - 30% for presale, 5% for referrals, 20% for staking rewards
         presaleTokens = _totalTokenSupply * 30 / PERCENT_DENOMINATOR;
         maxReferralRewards = _totalTokenSupply * 5 / PERCENT_DENOMINATOR;
         _maxStakingRewards = _totalTokenSupply * 20 / PERCENT_DENOMINATOR;
@@ -260,6 +260,24 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
     }
 
     /**
+     * @dev Update the sale token address
+     * @param _newTokenAddress New token address to sell
+     */
+    function ChangeTokentoSell(address _newTokenAddress) external onlyOwner {
+        require(_newTokenAddress != address(0), "Zero token address");
+        SaleToken = _newTokenAddress;
+    }
+
+    /**
+     * @dev Update minimum token purchase amount
+     * @param _newMinAmount New minimum token amount
+     */
+    function EditMinTokenToBuy(uint256 _newMinAmount) external onlyOwner {
+        require(_newMinAmount > 0, "Min amount must be greater than zero");
+        MinTokenTobuy = _newMinAmount;
+    }
+
+    /**
      * @dev Pause a presale
      */
     function pausePresale(uint256 _id) external checkPresaleId(_id) onlyOwner {
@@ -312,6 +330,35 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
         returns (uint256 _tokens)
     {
         _tokens = (amount * 10**18) / presale[_id].price;
+    }
+
+    /**
+     * @dev Helper funtion to get ETH price for given amount
+     * @param _id Presale id
+     * @param amount No of tokens to buy
+     */
+    function ethBuyHelper(uint256 _id, uint256 amount)
+        external
+        view
+        checkPresaleId(_id)
+        returns (uint256 ethAmount)
+    {
+        uint256 usdPrice = (amount * presale[_id].price);
+        ethAmount = (usdPrice * ETH_MULTIPLIER) / (getLatestPrice() * 10**IERC20Metadata(SaleToken).decimals());
+    }
+
+    /**
+     * @dev Helper funtion to get USDT price for given amount
+     * @param _id Presale id
+     * @param amount No of tokens to buy
+     */
+    function usdtBuyHelper(uint256 _id, uint256 amount)
+        external
+        view
+        checkPresaleId(_id)
+        returns (uint256 usdPrice)
+    {
+        usdPrice = (amount * presale[_id].price) / 10**IERC20Metadata(SaleToken).decimals();
     }
 
     /**

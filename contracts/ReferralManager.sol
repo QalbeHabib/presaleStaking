@@ -267,6 +267,15 @@ contract ReferralManager is SaleBase {
         );
     }
 
+    /**
+     * @dev Update the maximum referral rewards (5% of total supply)
+     * @param _totalSupply The total token supply to calculate 5% from
+     */
+    function updateMaxReferralRewards(uint256 _totalSupply) external onlyOwner {
+        require(_totalSupply > 0, "Invalid total supply");
+        maxReferralRewards = _totalSupply * 5 / PERCENT_DENOMINATOR;
+    }
+
     // Check if a user has a valid referral link to share
     function canReferOthers(address _user) external view returns (bool) {
         return hasQualifiedPurchase[_user];
