@@ -110,23 +110,20 @@ contract ReferralManager is SaleBase {
      * @param _referrer Address of the referrer
      */
     function recordReferral(address _referrer) public {
-        // Security checks
-        require(_referrer != address(0), "Invalid referrer");
-        require(_referrer != msg.sender, "Cannot refer yourself");
-        require(!hasUsedReferral[msg.sender], "Already used a referral");
-        require(hasQualifiedPurchase[_referrer], "Referrer has not qualified");
+        require(_referrer != address(0) && _referrer != msg.sender, "Invalid referrer");
+        require(!hasUsedReferral[msg.sender], "Already referred");
+        require(hasQualifiedPurchase[_referrer], "Unqualified referrer");
         
-        // Prevent circular referrals - Check if the referrer was referred by the current user
-        require(referralData[_referrer].referrer != msg.sender, "Circular referral not allowed");
+        // Prevent circular referrals
+        require(referralData[_referrer].referrer != msg.sender, "Circular referral");
         
-        // Also check deeper circular referrals by traversing the chain
         address currentReferrer = referralData[_referrer].referrer;
         while (currentReferrer != address(0)) {
-            require(currentReferrer != msg.sender, "Circular referral chain detected");
+            require(currentReferrer != msg.sender, "Circular chain");
             currentReferrer = referralData[currentReferrer].referrer;
         }
         
-        // Record the referral relationship in both data structures for compatibility
+        // Record the referral relationship
         referralData[msg.sender].referrer = _referrer;
         users[msg.sender].referrer = _referrer;
         hasUsedReferral[msg.sender] = true;
@@ -136,18 +133,25 @@ contract ReferralManager is SaleBase {
         referralData[_referrer].referralCount++;
         
         // Add user to referrer's referredUsers array in users struct
+        _addToReferredUsers(_referrer, msg.sender);
+        
+        emit ReferralRecorded(_referrer, msg.sender, block.timestamp);
+    }
+
+    /**
+     * @dev Add user to referrer's referred list
+     */
+    function _addToReferredUsers(address _referrer, address _user) internal {
         bool alreadyReferred = false;
         for (uint i = 0; i < users[_referrer].referredUsers.length; i++) {
-            if (users[_referrer].referredUsers[i] == msg.sender) {
+            if (users[_referrer].referredUsers[i] == _user) {
                 alreadyReferred = true;
                 break;
             }
         }
         if (!alreadyReferred) {
-            users[_referrer].referredUsers.push(msg.sender);
+            users[_referrer].referredUsers.push(_user);
         }
-        
-        emit ReferralRecorded(_referrer, msg.sender, block.timestamp);
     }
 
     /**
@@ -282,36 +286,17 @@ contract ReferralManager is SaleBase {
      * @dev Check if a user can be referred by a specific referrer
      */
     function canBeReferred(address _referrer, address _referee) external view returns (bool isEligible, uint8 reason) {
-        // Check if user already has a referrer
-        if (hasUsedReferral[_referee]) {
-            return (false, 1); // Already has a referrer
-        }
+        if (hasUsedReferral[_referee]) return (false, 1);
+        if (_referrer == _referee) return (false, 2);
+        if (!hasQualifiedPurchase[_referrer]) return (false, 3);
+        if (referralData[_referrer].referrer == _referee) return (false, 2);
         
-        // Check if referrer is the same as referee (self-referral)
-        if (_referrer == _referee) {
-            return (false, 2); // Self-referral not allowed
-        }
-        
-        // Check if referrer is qualified
-        if (!hasQualifiedPurchase[_referrer]) {
-            return (false, 3); // Referrer not qualified
-        }
-        
-        // Check first level circular referral (A refers B, B tries to refer A)
-        if (referralData[_referrer].referrer == _referee) {
-            return (false, 2); // Circular referral
-        }
-        
-        // Check deeper circular referrals by traversing the chain
         address currentReferrer = referralData[_referrer].referrer;
         while (currentReferrer != address(0)) {
-            if (currentReferrer == _referee) {
-                return (false, 2); // Circular referral chain
-            }
+            if (currentReferrer == _referee) return (false, 2);
             currentReferrer = referralData[currentReferrer].referrer;
         }
         
-        // All checks passed
         return (true, 0);
     }
     

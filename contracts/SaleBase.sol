@@ -25,7 +25,6 @@ interface Aggregator {
 
 /**
  * @title Sale Base Contract
- * @notice Core presale functionality - slimmed down version
  */
 contract SaleBase is ReentrancyGuard, Ownable, Pausable {
     // State variables
@@ -62,29 +61,13 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
     mapping(address => ISaleStructs.User) public users;
 
     // Events
-    event PresaleStarted(
-        uint256 presaleId, 
-        uint256 cap, 
-        uint256 price, 
-        uint256 startTime, 
-        uint256 endTime
-    );
-    
-    event PresaleEnded(
-        uint256 presaleId, 
-        uint256 endTime
-    );
-    
+    event PresaleStarted(uint256 presaleId, uint256 cap, uint256 price, uint256 startTime, uint256 endTime);
+    event PresaleEnded(uint256 presaleId, uint256 endTime);
     event PresalePaused(uint256 indexed id, uint256 timestamp);
     event PresaleUnpaused(uint256 indexed id, uint256 timestamp);
     event OracleUpdated(address previousOracle, address newOracle, uint256 timestamp);
     event TokensPreFunded(address indexed token, uint256 amount, uint256 timestamp);
-    event PresaleCreated(
-        uint256 indexed _id,
-        uint256 _totalTokens,
-        uint256 _startTime,
-        uint256 _endTime
-    );
+    event PresaleCreated(uint256 indexed _id, uint256 _totalTokens, uint256 _startTime, uint256 _endTime);
     
     /**
      * @dev Constructor initializes the sale parameters
@@ -109,11 +92,11 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
         uint256 _MinTokenTobuy,
         uint256 _totalTokenSupply
     ) internal {
-        require(_oracle != address(0), "Oracle address cannot be zero");
-        require(_usdt != address(0), "USDT address cannot be zero");
-        require(_SaleToken != address(0), "Sale token address cannot be zero");
-        require(_MinTokenTobuy > 0, "Minimum token to buy must be greater than zero");
-        require(_totalTokenSupply > 0, "Total supply must be greater than zero");
+        require(_oracle != address(0), "Zero oracle");
+        require(_usdt != address(0), "Zero USDT");
+        require(_SaleToken != address(0), "Zero token");
+        require(_MinTokenTobuy > 0, "Zero min");
+        require(_totalTokenSupply > 0, "Zero supply");
         
         aggregatorInterface = Aggregator(_oracle);
         SaleToken = _SaleToken;
@@ -136,15 +119,15 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
      * @dev Pre-fund the contract with tokens for presale, referrals, and staking
      */
     function preFundContract() external onlyOwner {
-        require(!isTokenPreFunded, "Contract already pre-funded");
-        require(SaleToken != address(0), "Sale token not set");
+        require(!isTokenPreFunded, "Already funded");
+        require(SaleToken != address(0), "Token not set");
         
         // Calculate total tokens needed
         uint256 totalRequired = presaleTokens + maxReferralRewards + _maxStakingRewards;
         
         // Check contract balance
         uint256 contractBalance = IERC20(SaleToken).balanceOf(address(this));
-        require(contractBalance >= totalRequired, "Insufficient token balance");
+        require(contractBalance >= totalRequired, "Insufficient balance");
         
         // Set pre-funded flag
         isTokenPreFunded = true;
@@ -162,8 +145,8 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
         uint256 _UsdtHardcap
     ) external onlyOwner {
         require(_price > 0, "Zero price");
-        require(_tokensToSell > 0, "Zero tokens to sell");
-        require(presale[presaleId].Active == false, "Previous Sale is Active");
+        require(_tokensToSell > 0, "Zero tokens");
+        require(!presale[presaleId].Active, "Sale active");
 
         presaleId++;
 
@@ -195,10 +178,7 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
      * @dev End the presale
      */
     function endPresale() public onlyOwner {
-        require(
-            presale[presaleId].Active == true,
-            "This presale is already Inactive"
-        );
+        require(presale[presaleId].Active, "Already inactive");
         presale[presaleId].endTime = block.timestamp;
         presale[presaleId].Active = false;
     }
@@ -225,7 +205,7 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
         uint256 _Hardcap
     ) external checkPresaleId(_id) onlyOwner {
         require(_price > 0, "Zero price");
-        require(_tokensToSell > 0, "Zero tokens to sell");
+        require(_tokensToSell > 0, "Zero tokens");
         presale[_id].price = _price;
         presale[_id].nextStagePrice = _nextStagePrice;
         presale[_id].tokensToSell = _tokensToSell;
@@ -236,7 +216,7 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
      * @dev Change fund receiving wallet
      */
     function changeFundWallet(address _wallet) external onlyOwner {
-        require(_wallet != address(0), "Invalid parameters");
+        require(_wallet != address(0), "Zero address");
         fundReceiver = _wallet;
     }
 
@@ -244,7 +224,7 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
      * @dev Change USDT token address
      */
     function changeUSDTToken(address _newAddress) external onlyOwner {
-        require(_newAddress != address(0), "Zero token address");
+        require(_newAddress != address(0), "Zero address");
         USDTInterface = IERC20Metadata(_newAddress);
     }
 
@@ -252,7 +232,7 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
      * @dev Update the sale token address
      */
     function ChangeTokentoSell(address _newTokenAddress) external onlyOwner {
-        require(_newTokenAddress != address(0), "Zero token address");
+        require(_newTokenAddress != address(0), "Zero address");
         SaleToken = _newTokenAddress;
     }
 
@@ -260,7 +240,7 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
      * @dev Update minimum token purchase amount
      */
     function EditMinTokenToBuy(uint256 _newMinAmount) external onlyOwner {
-        require(_newMinAmount > 0, "Min amount must be greater than zero");
+        require(_newMinAmount > 0, "Zero min");
         MinTokenTobuy = _newMinAmount;
     }
 
@@ -370,35 +350,7 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
     {
         isExcludeMinToken[_user] = _status;
     }
-
-   
     
-   
-
-    /**
-     * @dev Modifier to check presale ID validity
-     */
-    modifier checkPresaleId(uint256 _id) {
-        require(_id > 0 && _id <= presaleId, "Invalid presale id");
-        _;
-    }
-
-    /**
-     * @dev Modifier to check sale state
-     */
-    modifier checkSaleState(uint256 _id, uint256 amount) {
-        require(
-            block.timestamp >= presale[_id].startTime &&
-                presale[_id].Active == true,
-            "Invalid time for buying"
-        );
-        require(
-            amount > 0 && amount <= presale[_id].tokensToSell-presale[_id].Sold,
-            "Invalid sale amount"
-        );
-        _;
-    }
-
     /**
      * @dev Public getter for max staking rewards
      */
@@ -415,13 +367,10 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
         
         // Check we're not withdrawing reserved tokens
         uint256 contractBalance = IERC20(_token).balanceOf(address(this));
-        require(
-            contractBalance - amount >= reservedTokens,
-            "Cannot withdraw tokens reserved for rewards"
-        );
+        require(contractBalance - amount >= reservedTokens, "Reserved tokens");
         
         bool success = IERC20(_token).transfer(fundReceiver, amount);
-        require(success, "Token transfer failed");
+        require(success, "Transfer failed");
     }
 
     /**
@@ -429,5 +378,22 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
      */
     function WithdrawContractFunds(uint256 amount) external onlyOwner {
         SaleUtils.sendValue(payable(fundReceiver), amount);
+    }
+
+    /**
+     * @dev Modifier to check presale ID validity
+     */
+    modifier checkPresaleId(uint256 _id) {
+        require(_id > 0 && _id <= presaleId, "Invalid ID");
+        _;
+    }
+
+    /**
+     * @dev Modifier to check sale state
+     */
+    modifier checkSaleState(uint256 _id, uint256 amount) {
+        require(block.timestamp >= presale[_id].startTime && presale[_id].Active, "Invalid time");
+        require(amount > 0 && amount <= presale[_id].tokensToSell-presale[_id].Sold, "Invalid amount");
+        _;
     }
 } 

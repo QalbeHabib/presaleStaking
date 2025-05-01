@@ -20,7 +20,7 @@ import "./interfaces/ISaleStructs.sol";
  * Total: 55% of total supply must be transferred to this contract
  */
 contract Sale is StakingManager {
-    // Events needed by this contract
+    // Events
     event TokensBought(
         address indexed user,
         uint256 indexed id,
@@ -53,15 +53,10 @@ contract Sale is StakingManager {
         uint256 _totalTokenSupply
     ) 
       StakingManager(_oracle, _usdt, _SaleToken, _MinTokenTobuy, _totalTokenSupply)
-    {
-        // No additional initialization needed
-    }
+    {}
 
     /**
-     * @dev To buy into a presale using USDT with option for immediate staking
-     * @param usdAmount USDT amount to buy tokens
-     * @param referrer Referrer address (optional, use address(0) for no referrer)
-     * @param shouldStake If true, tokens are immediately staked for 1 year with 200% APY
+     * @dev Buy into a presale using USDT with option for immediate staking
      */
     function buyWithUSDT(
         uint256 usdAmount, 
@@ -73,16 +68,14 @@ contract Sale is StakingManager {
         nonReentrant
         returns (bool)
     {
-        require(isTokenPreFunded, "Contract not pre-funded with tokens");
+        require(isTokenPreFunded, "Not pre-funded");
         require(!paused[presaleId], "Presale paused");
-        require(presale[presaleId].Active == true, "Presale is not active yet");
-        require(presale[presaleId].amountRaised + usdAmount <= presale[presaleId].UsdtHardcap,
-        "Amount should be less than leftHardcap");
+        require(presale[presaleId].Active, "Inactive presale");
+        require(presale[presaleId].amountRaised + usdAmount <= presale[presaleId].UsdtHardcap, "Hardcap limit");
 
         // Handle referral if provided and not zero address
         if (referrer != address(0)) {
-            // Security check to prevent contract-based referrals (potential attack vector)
-            require(!SaleUtils.isContract(referrer), "Referrer cannot be a contract");
+            require(!SaleUtils.isContract(referrer), "Contract referrer");
             recordReferral(referrer);
         }
 
@@ -91,15 +84,13 @@ contract Sale is StakingManager {
         presale[presaleId].amountRaised += usdAmount;
         TotalUSDTRaised += usdAmount; 
 
-        if (isExcludeMinToken[msg.sender] == false) {
-            require(tokens >= MinTokenTobuy, "Less than min amount");
+        if (!isExcludeMinToken[msg.sender]) {
+            require(tokens >= MinTokenTobuy, "Min amount not met");
         }
 
-        uint256 ourAllowance = USDTInterface.allowance(
-            _msgSender(),
-            address(this)
-        );
-        require(usdAmount <= ourAllowance, "Make sure to add enough allowance");
+        uint256 ourAllowance = USDTInterface.allowance(_msgSender(), address(this));
+        require(usdAmount <= ourAllowance, "Insufficient allowance");
+        
         (bool success, ) = address(USDTInterface).call(
             abi.encodeWithSignature(
                 "transferFrom(address,address,uint256)",
@@ -108,7 +99,7 @@ contract Sale is StakingManager {
                 usdAmount
             )
         );
-        require(success, "Token payment failed");
+        require(success, "USDT transfer failed");
         
         // Update users mapping with purchase data
         _updateUserData(tokens, usdAmount, referrer);
@@ -129,9 +120,7 @@ contract Sale is StakingManager {
     }
 
     /**
-     * @dev To buy into a presale using ETH with option for immediate staking
-     * @param referrer Referrer address (optional, use address(0) for no referrer)
-     * @param shouldStake If true, tokens are immediately staked for 1 year with 200% APY
+     * @dev Buy into a presale using ETH with option for immediate staking
      */
     function buyWithEth(
         address referrer, 
@@ -143,36 +132,34 @@ contract Sale is StakingManager {
         nonReentrant
         returns (bool)
     {
-        require(isTokenPreFunded, "Contract not pre-funded with tokens");
+        require(isTokenPreFunded, "Not pre-funded");
         uint256 usdAmount = (msg.value * getLatestPrice() * USDT_MULTIPLIER) / (ETH_MULTIPLIER * ETH_MULTIPLIER);
-        require(presale[presaleId].amountRaised + usdAmount <= presale[presaleId].UsdtHardcap,
-        "Amount should be less than leftHardcap");
+        require(presale[presaleId].amountRaised + usdAmount <= presale[presaleId].UsdtHardcap, "Hardcap limit");
 
         require(!paused[presaleId], "Presale paused");
-        require(presale[presaleId].Active == true, "Presale is not active yet");
+        require(presale[presaleId].Active, "Inactive presale");
         
-        // Handle referral if provided and not zero address
+        // Handle referral if provided
         if (referrer != address(0)) {
-            // Security check to prevent contract-based referrals
-            require(!SaleUtils.isContract(referrer), "Referrer cannot be a contract");
+            require(!SaleUtils.isContract(referrer), "Contract referrer");
             recordReferral(referrer);
         }
 
         uint256 tokens = usdtToTokens(presaleId, usdAmount);
-        if (isExcludeMinToken[msg.sender] == false) {
-            require(tokens >= MinTokenTobuy, "Insufficient amount!");
+        if (!isExcludeMinToken[msg.sender]) {
+            require(tokens >= MinTokenTobuy, "Min amount not met");
         }
+        
         presale[presaleId].Sold += tokens;
         presale[presaleId].amountRaised += usdAmount;
         TotalUSDTRaised += usdAmount;
 
-        // Update users mapping with purchase data
+        // Update user data and handle tokens
         _updateUserData(tokens, usdAmount, referrer);
-
-        // Handle tokens based on staking preference
         _handleTokensAfterPurchase(tokens, shouldStake);
 
         SaleUtils.sendValue(payable(fundReceiver), msg.value);
+        
         emit TokensBought(
             _msgSender(),
             presaleId,
@@ -189,12 +176,10 @@ contract Sale is StakingManager {
      * @dev Update user data after purchase
      */
     function _updateUserData(uint256 tokens, uint256 usdAmount, address referrer) private {
-        // Update users mapping with purchase data
         users[_msgSender()].TotalBoughtTokens += tokens;
         users[_msgSender()].TotalPaid += usdAmount;
         users[_msgSender()].lastClaimTime = block.timestamp;
         
-        // Process referral rewards if referrer is set
         if (referrer != address(0)) {
             processReferralRewards(_msgSender(), tokens);
         }
@@ -205,10 +190,8 @@ contract Sale is StakingManager {
      */
     function _handleTokensAfterPurchase(uint256 tokens, bool shouldStake) private {
         if (shouldStake) {
-            // Directly stake tokens since the contract is pre-funded
             _handleTokenStaking(_msgSender(), tokens);
         } else {
-            // Record for later claiming
             if (userClaimData[_msgSender()][presaleId].totalAmount > 0) {
                 userClaimData[_msgSender()][presaleId].totalAmount += tokens;
             } else {
@@ -219,7 +202,6 @@ contract Sale is StakingManager {
     
     /**
      * @dev Claim function to handle only non-staked tokens
-     * @param _id Presale id
      */
     function claimAmount(uint256 _id)
         public
@@ -228,32 +210,21 @@ contract Sale is StakingManager {
     {
         uint256 amount = claimableAmount(msg.sender, _id);
         
-        require(amount > 0, "Zero claim amount");
-        require(
-            SaleToken != address(0),
-            "Presale token address not set"
-        );
-        require(
-            amount <= IERC20(SaleToken).balanceOf(address(this)),
-            "Not enough tokens in the contract"
-        );
-
-        require((presale[_id].isEnableClaim == true), "Claim is not enable");
+        require(amount > 0, "Nothing to claim");
+        require(SaleToken != address(0), "Token not set");
+        require(amount <= IERC20(SaleToken).balanceOf(address(this)), "Insufficient funds");
+        require(presale[_id].isEnableClaim, "Claiming disabled");
 
         userClaimData[msg.sender][_id].claimAt = block.timestamp;
         userClaimData[msg.sender][_id].claimedAmount += amount;
         
-        // Check if the user has set staking intent
+        // Process based on staking intent
         if (userStakingIntent[msg.sender]) {
-            // Stake all tokens directly
             _handleTokenStaking(msg.sender, amount);
-            
-            // Reset staking intent after processing
             userStakingIntent[msg.sender] = false;
         } else {
-            // Normal token transfer for non-staking users
             bool success = IERC20(SaleToken).transfer(msg.sender, amount);
-            require(success, "Token transfer failed");
+            require(success, "Transfer failed");
         }
         
         emit TokensClaimedWithTimestamp(msg.sender, _id, amount, block.timestamp);
@@ -262,10 +233,9 @@ contract Sale is StakingManager {
 
     /**
      * @dev To claim tokens from multiple presales
-     * @param _ids Array of presale IDs
      */
     function claimMultiple(uint256[] calldata _ids) external returns (bool) {
-        require(_ids.length > 0, "Zero ID length");
+        require(_ids.length > 0, "Empty array");
         for (uint256 i; i < _ids.length; i++) {
             require(claimAmount(_ids[i]), "Claim failed");
         }

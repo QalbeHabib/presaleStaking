@@ -80,14 +80,11 @@ contract StakingManager is ReferralManager {
             
             // Check we're not withdrawing reserved tokens
             uint256 contractBalance = IERC20(_token).balanceOf(address(this));
-            require(
-                contractBalance - amount >= reservedTokens,
-                "Cannot withdraw tokens reserved for rewards"
-            );
+            require(contractBalance - amount >= reservedTokens, "Reserved tokens");
         }
         
         bool success = IERC20(_token).transfer(fundReceiver, amount);
-        require(success, "Token transfer failed");
+        require(success, "Transfer failed");
     }
     
     /**
@@ -97,7 +94,7 @@ contract StakingManager is ReferralManager {
      * @param _recipient Recipient address
      */
     function safeWithdraw(address _token, uint256 _amount, address _recipient) external onlyOwner {
-        require(_recipient != address(0), "Cannot withdraw to zero address");
+        require(_recipient != address(0), "Zero address");
         
         if (_token == SaleToken) {
             // Calculate tokens needed for staking rewards
@@ -105,14 +102,11 @@ contract StakingManager is ReferralManager {
             
             // Check we're not withdrawing reserved tokens
             uint256 contractBalance = IERC20(_token).balanceOf(address(this));
-            require(
-                contractBalance - _amount >= reservedForStaking,
-                "Cannot withdraw tokens reserved for staking rewards"
-            );
+            require(contractBalance - _amount >= reservedForStaking, "Reserved tokens");
         }
         
         bool withdrawSuccess = IERC20(_token).transfer(_recipient, _amount);
-        require(withdrawSuccess, "Token transfer failed");
+        require(withdrawSuccess, "Transfer failed");
     }
     
     /**
@@ -128,23 +122,17 @@ contract StakingManager is ReferralManager {
      */
     function _handleTokenStaking(address _user, uint256 _amount) internal {
         // Ensure staking is active
-        require(stakingActive, "Staking is not active");
-        require(_amount > 0, "Cannot stake zero amount");
-        require(
-            totalStaked + _amount <= stakingCap,
-            "Staking cap would be exceeded"
-        );
+        require(stakingActive, "Staking inactive");
+        require(_amount > 0, "Zero amount");
+        require(totalStaked + _amount <= stakingCap, "Cap exceeded");
         
         // Calculate potential rewards to verify we stay within the rewards limit
         uint256 potentialReward = _amount * STAKING_APY / 100;
-        require(
-            totalStakingRewardsIssued + potentialReward <= maxStakingRewards(),
-            "Not enough tokens in the staking reward pool"
-        );
+        require(totalStakingRewardsIssued + potentialReward <= maxStakingRewards(), "Reward limit");
         
         // Update global state for staking
-        totalStaked = totalStaked + _amount;
-        totalStakingRewardsIssued = totalStakingRewardsIssued + potentialReward;
+        totalStaked += _amount;
+        totalStakingRewardsIssued += potentialReward;
         
         // Auto-disable staking if cap is reached
         if (totalStaked >= stakingCap) {
@@ -159,24 +147,38 @@ contract StakingManager is ReferralManager {
         if (userStake.stakedAmount > 0 && !userStake.hasWithdrawn) {
             // If existing stake is still locked, cannot add to it
             if (block.timestamp < userStake.unlockTimestamp) {
-                revert("Cannot stake when you have a locked stake");
+                revert("Locked stake exists");
             } else {
                 // Existing stake is unlocked, withdraw it first
-                uint256 stakedAmount = userStake.stakedAmount;
-                uint256 reward = stakedAmount * STAKING_APY / 100;
-                
-                // Mark as withdrawn to prevent double-dipping
-                userStake.hasWithdrawn = true;
-                
-                // Transfer rewards and original stake back
-                bool transferSuccess = IERC20(SaleToken).transfer(_user, stakedAmount + reward);
-                require(transferSuccess, "Stake withdrawal failed");
-                
-                emit StakeWithdrawn(_user, stakedAmount, reward, block.timestamp);
+                _processUnlockedStake(_user, userStake);
             }
         }
         
         // Create a new stake
+        _createNewStake(_user, _amount, userStake);
+    }
+    
+    /**
+     * @dev Process an unlocked stake by returning principal + rewards
+     */
+    function _processUnlockedStake(address _user, ISaleStructs.StakeInfo storage userStake) internal {
+        uint256 stakedAmount = userStake.stakedAmount;
+        uint256 reward = stakedAmount * STAKING_APY / 100;
+        
+        // Mark as withdrawn to prevent double-dipping
+        userStake.hasWithdrawn = true;
+        
+        // Transfer rewards and original stake back
+        bool transferSuccess = IERC20(SaleToken).transfer(_user, stakedAmount + reward);
+        require(transferSuccess, "Withdrawal failed");
+        
+        emit StakeWithdrawn(_user, stakedAmount, reward, block.timestamp);
+    }
+    
+    /**
+     * @dev Create a new stake for a user
+     */
+    function _createNewStake(address _user, uint256 _amount, ISaleStructs.StakeInfo storage userStake) internal {
         userStake.stakedAmount = _amount;
         userStake.stakingTimestamp = block.timestamp;
         userStake.unlockTimestamp = block.timestamp + 365 days;
@@ -189,23 +191,17 @@ contract StakingManager is ReferralManager {
      * @dev Stake tokens with 1-year lock and 200% APY
      */
     function stakeTokens(uint256 _amount) external nonReentrant {
-        require(stakingActive, "Staking is not active");
-        require(_amount > 0, "Cannot stake zero amount");
-        require(
-            totalStaked + _amount <= stakingCap,
-            "Staking cap would be exceeded"
-        );
+        require(stakingActive, "Staking inactive");
+        require(_amount > 0, "Zero amount");
+        require(totalStaked + _amount <= stakingCap, "Cap exceeded");
         
         // Calculate potential rewards to verify we stay within the rewards limit
         uint256 potentialReward = _amount * STAKING_APY / 100;
-        require(
-            totalStakingRewardsIssued + potentialReward <= maxStakingRewards(),
-            "Not enough tokens in the staking reward pool"
-        );
+        require(totalStakingRewardsIssued + potentialReward <= maxStakingRewards(), "Reward limit");
         
         // Update global state
-        totalStaked = totalStaked + _amount;
-        totalStakingRewardsIssued = totalStakingRewardsIssued + potentialReward;
+        totalStaked += _amount;
+        totalStakingRewardsIssued += potentialReward;
         
         // Auto-disable staking if cap is reached
         if (totalStaked >= stakingCap) {
@@ -216,47 +212,31 @@ contract StakingManager is ReferralManager {
         // Update user stake
         ISaleStructs.StakeInfo storage userStake = userStakes[msg.sender];
         
-        // If user already has a stake, we need special handling
         if (userStake.stakedAmount > 0 && !userStake.hasWithdrawn) {
-            require(
-                block.timestamp >= userStake.unlockTimestamp,
-                "Cannot add to existing stake while locked"
-            );
+            require(block.timestamp >= userStake.unlockTimestamp, "Locked stake");
             
             // Withdraw previous stake first (internally)
-            uint256 stakedAmount = userStake.stakedAmount;
-            uint256 reward = stakedAmount * STAKING_APY / 100;
-            
-            // Mark as withdrawn to prevent double-dipping
-            userStake.hasWithdrawn = true;
-            
-            // Transfer rewards and original stake back
-            bool transferSuccess = IERC20(SaleToken).transfer(msg.sender, stakedAmount + reward);
-            require(transferSuccess, "Token transfer failed");
-            
-            // Create a new stake
-            userStake.stakedAmount = _amount;
-            userStake.stakingTimestamp = block.timestamp;
-            userStake.unlockTimestamp = block.timestamp + 365 days;
-            userStake.hasWithdrawn = false;
-        } else {
-            // First time stake or previous stake was withdrawn
-            userStake.stakedAmount = _amount;
-            userStake.stakingTimestamp = block.timestamp;
-            userStake.unlockTimestamp = block.timestamp + 365 days;
-            userStake.hasWithdrawn = false;
+            _processUnlockedStake(msg.sender, userStake);
         }
         
-        // Transfer tokens from user to contract (SafeERC20 pattern)
+        // Create a new stake
+        _createNewStake(msg.sender, _amount, userStake);
+        
+        // Transfer tokens from user to contract
+        _transferStakedTokens(msg.sender, _amount);
+    }
+    
+    /**
+     * @dev Transfer tokens from user to contract for staking
+     */
+    function _transferStakedTokens(address _user, uint256 _amount) internal {
         uint256 balanceBefore = IERC20(SaleToken).balanceOf(address(this));
-        bool transferFromSuccess = IERC20(SaleToken).transferFrom(msg.sender, address(this), _amount);
-        require(transferFromSuccess, "Token transfer failed");
+        bool transferSuccess = IERC20(SaleToken).transferFrom(_user, address(this), _amount);
+        require(transferSuccess, "Transfer failed");
         
         // Verify tokens were actually received (protection against fee-on-transfer tokens)
         uint256 balanceAfter = IERC20(SaleToken).balanceOf(address(this));
-        require(balanceAfter >= balanceBefore + _amount, "Incorrect amount of tokens received");
-        
-        emit TokensStaked(msg.sender, _amount, block.timestamp, userStake.unlockTimestamp);
+        require(balanceAfter >= balanceBefore + _amount, "Incorrect amount");
     }
     
     /**
@@ -267,10 +247,7 @@ contract StakingManager is ReferralManager {
         
         require(userStake.stakedAmount > 0, "No stake found");
         require(!userStake.hasWithdrawn, "Already withdrawn");
-        require(
-            block.timestamp >= userStake.unlockTimestamp,
-            "Stake is still locked"
-        );
+        require(block.timestamp >= userStake.unlockTimestamp, "Still locked");
         
         uint256 stakedAmount = userStake.stakedAmount;
         uint256 reward = stakedAmount * STAKING_APY / 100;
@@ -283,14 +260,11 @@ contract StakingManager is ReferralManager {
         totalStaked = totalStaked - stakedAmount;
         
         // Verify there are enough tokens in the contract
-        require(
-            totalAmount <= IERC20(SaleToken).balanceOf(address(this)),
-            "Not enough tokens in the contract"
-        );
+        require(totalAmount <= IERC20(SaleToken).balanceOf(address(this)), "Insufficient funds");
         
         // Transfer rewards and original stake
         bool withdrawSuccess = IERC20(SaleToken).transfer(msg.sender, totalAmount);
-        require(withdrawSuccess, "Token transfer failed");
+        require(withdrawSuccess, "Transfer failed");
         
         emit StakeWithdrawn(msg.sender, stakedAmount, reward, block.timestamp);
     }
@@ -364,7 +338,7 @@ contract StakingManager is ReferralManager {
      * @dev Update staking cap
      */
     function updateStakingCap(uint256 _newCap) external onlyOwner {
-        require(_newCap >= totalStaked, "New cap must be >= total staked");
+        require(_newCap >= totalStaked, "Below total staked");
         
         uint256 oldCap = stakingCap;
         stakingCap = _newCap;
