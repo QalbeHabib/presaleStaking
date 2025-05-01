@@ -28,17 +28,11 @@ interface Aggregator {
  * @notice Core presale functionality - slimmed down version
  */
 contract SaleBase is ReentrancyGuard, Ownable, Pausable {
-    // Constants
-    uint256 public constant PERCENT_DENOMINATOR = 100;
-    uint256 public constant TOKEN_DECIMALS = 10**18;
-    uint256 internal constant TOKEN_PRICE_PRECISION = 10**18;
-    
     // State variables
     address public oracle; // Chainlink oracle address
     address public usdt; // USDT token address
     address public SaleToken; // Sale token address
     uint256 public MinTokenTobuy; // Min tokens to buy
-    uint256 public TotalAmountBought; // Total tokens bought
     uint256 public TotalUSDTRaised; // Total USDT raised
     uint256 public totalTokenSupply; // Total supply of tokens
 
@@ -94,11 +88,6 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
     
     /**
      * @dev Constructor initializes the sale parameters
-     * @param _oracle Chainlink oracle for ETH price feed
-     * @param _usdt USDT token address
-     * @param _SaleToken Sale token address
-     * @param _MinTokenTobuy Minimum tokens that can be purchased
-     * @param _totalTokenSupply Total token supply
      */
     constructor(
         address _oracle,
@@ -137,10 +126,10 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
         // Store total supply
         totalTokenSupply = _totalTokenSupply;
         
-        // Calculate allocations - 30% for presale, 5% for referrals, 20% for staking rewards
-        presaleTokens = _totalTokenSupply * 30 / PERCENT_DENOMINATOR;
-        maxReferralRewards = _totalTokenSupply * 5 / PERCENT_DENOMINATOR;
-        _maxStakingRewards = _totalTokenSupply * 20 / PERCENT_DENOMINATOR;
+        // Calculate allocations - 30% for presale, 5% for referrals, 20% for staking
+        presaleTokens = _totalTokenSupply * 30 / 100;
+        maxReferralRewards = _totalTokenSupply * 5 / 100;
+        _maxStakingRewards = _totalTokenSupply * 20 / 100;
     }
     
     /**
@@ -261,7 +250,6 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
 
     /**
      * @dev Update the sale token address
-     * @param _newTokenAddress New token address to sell
      */
     function ChangeTokentoSell(address _newTokenAddress) external onlyOwner {
         require(_newTokenAddress != address(0), "Zero token address");
@@ -270,7 +258,6 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
 
     /**
      * @dev Update minimum token purchase amount
-     * @param _newMinAmount New minimum token amount
      */
     function EditMinTokenToBuy(uint256 _newMinAmount) external onlyOwner {
         require(_newMinAmount > 0, "Min amount must be greater than zero");
@@ -334,8 +321,6 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
 
     /**
      * @dev Helper funtion to get ETH price for given amount
-     * @param _id Presale id
-     * @param amount No of tokens to buy
      */
     function ethBuyHelper(uint256 _id, uint256 amount)
         external
@@ -349,8 +334,6 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
 
     /**
      * @dev Helper funtion to get USDT price for given amount
-     * @param _id Presale id
-     * @param amount No of tokens to buy
      */
     function usdtBuyHelper(uint256 _id, uint256 amount)
         external
@@ -387,6 +370,10 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
     {
         isExcludeMinToken[_user] = _status;
     }
+
+   
+    
+   
 
     /**
      * @dev Modifier to check presale ID validity

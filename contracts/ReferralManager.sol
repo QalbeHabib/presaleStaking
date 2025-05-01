@@ -13,15 +13,12 @@ import "./libraries/SaleUtils.sol";
  */
 contract ReferralManager is SaleBase {
     // Referral system constants and variables
-    uint256 public constant MINIMUM_PURCHASE_FOR_REFERRAL = 1000 * TOKEN_DECIMALS; // 1000 tokens minimum to qualify for referral
+    uint256 public constant MINIMUM_PURCHASE_FOR_REFERRAL = 1000 * 10**18; // 1000 tokens minimum to qualify for referral
     uint256 public referralRewardPercentage = 20; // Default 20% reward (configurable)
-    uint256 public constant MAX_REFERRAL_PERCENTAGE = 20; // Maximum allowed reward percentage
     uint256 public totalReferralRewardsIssued;
-    uint256 public constant REFERRAL_DENOMINATOR = 100; // For percentage calculations
 
     // Anti-gaming time lock for referral changes
     uint256 public referralPercentageChangeTimeLock;
-    uint256 public constant REFERRAL_CHANGE_TIMELOCK = 24 hours;
 
     // Referral system mappings
     mapping(address => ISaleStructs.ReferralData) public referralData;
@@ -96,11 +93,11 @@ contract ReferralManager is SaleBase {
      * @param _percentage New percentage (1-20)
      */
     function updateReferralRewardPercentage(uint256 _percentage) external onlyOwner {
-        require(_percentage > 0 && _percentage <= MAX_REFERRAL_PERCENTAGE, "Invalid percentage");
+        require(_percentage > 0 && _percentage <= 20, "Invalid percentage");
         require(block.timestamp >= referralPercentageChangeTimeLock, "Timelock active");
         
         // Set new timelock for future changes
-        referralPercentageChangeTimeLock = block.timestamp + REFERRAL_CHANGE_TIMELOCK;
+        referralPercentageChangeTimeLock = block.timestamp + 24 hours;
         
         uint256 oldPercentage = referralRewardPercentage;
         referralRewardPercentage = _percentage;
@@ -168,7 +165,7 @@ contract ReferralManager is SaleBase {
         address referrer = referralData[_user].referrer;
         if (referrer != address(0) && _tokenAmount >= MINIMUM_PURCHASE_FOR_REFERRAL) {
             // Calculate rewards (both get the same percentage)
-            uint256 referrerReward = _tokenAmount * referralRewardPercentage / REFERRAL_DENOMINATOR;
+            uint256 referrerReward = _tokenAmount * referralRewardPercentage / 100;
             uint256 refereeReward = referrerReward; // Same reward for both parties
             
             // Check against the max referral rewards cap
@@ -273,7 +270,7 @@ contract ReferralManager is SaleBase {
      */
     function updateMaxReferralRewards(uint256 _totalSupply) external onlyOwner {
         require(_totalSupply > 0, "Invalid total supply");
-        maxReferralRewards = _totalSupply * 5 / PERCENT_DENOMINATOR;
+        maxReferralRewards = _totalSupply * 5 / 100;
     }
 
     // Check if a user has a valid referral link to share

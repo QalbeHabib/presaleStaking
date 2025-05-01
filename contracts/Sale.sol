@@ -111,27 +111,10 @@ contract Sale is StakingManager {
         require(success, "Token payment failed");
         
         // Update users mapping with purchase data
-        users[_msgSender()].TotalBoughtTokens += tokens;
-        users[_msgSender()].TotalPaid += usdAmount;
-        users[_msgSender()].lastClaimTime = block.timestamp;
-        
-        // Process referral rewards if referrer is set
-        if (referrer != address(0)) {
-            processReferralRewards(_msgSender(), tokens);
-        }
+        _updateUserData(tokens, usdAmount, referrer);
         
         // Handle tokens based on staking preference
-        if (shouldStake) {
-            // Directly stake tokens since the contract is pre-funded
-            _handleTokenStaking(_msgSender(), tokens);
-        } else {
-            // Record for later claiming
-            if (userClaimData[_msgSender()][presaleId].totalAmount > 0) {
-                userClaimData[_msgSender()][presaleId].totalAmount += tokens;
-            } else {
-                userClaimData[_msgSender()][presaleId] = ISaleStructs.ClaimData(0, tokens, 0);
-            }
-        }
+        _handleTokensAfterPurchase(tokens, shouldStake);
         
         emit TokensBought(
             _msgSender(),
@@ -181,34 +164,13 @@ contract Sale is StakingManager {
         }
         presale[presaleId].Sold += tokens;
         presale[presaleId].amountRaised += usdAmount;
-        TotalUSDTRaised += usdAmount; // Update total USDT raised
+        TotalUSDTRaised += usdAmount;
 
         // Update users mapping with purchase data
-        users[_msgSender()].TotalBoughtTokens += tokens;
-        users[_msgSender()].TotalPaid += usdAmount;
-        users[_msgSender()].lastClaimTime = block.timestamp;
-        
-        // Process referral rewards if referrer is set
-        if (referrer != address(0)) {
-            processReferralRewards(_msgSender(), tokens);
-        }
+        _updateUserData(tokens, usdAmount, referrer);
 
         // Handle tokens based on staking preference
-        if (shouldStake) {
-            // Directly stake tokens since the contract is pre-funded
-            _handleTokenStaking(_msgSender(), tokens);
-        } else {
-            // Record for later claiming
-            if (userClaimData[_msgSender()][presaleId].totalAmount > 0) {
-                userClaimData[_msgSender()][presaleId].totalAmount += tokens;
-            } else {
-                userClaimData[_msgSender()][presaleId] = ISaleStructs.ClaimData(
-                    0, // Last claimed at
-                    tokens, // total tokens to be claimed
-                    0 // claimed amount
-                );
-            }
-        }
+        _handleTokensAfterPurchase(tokens, shouldStake);
 
         SaleUtils.sendValue(payable(fundReceiver), msg.value);
         emit TokensBought(
@@ -221,6 +183,38 @@ contract Sale is StakingManager {
         );
         
         return true;
+    }
+    
+    /**
+     * @dev Update user data after purchase
+     */
+    function _updateUserData(uint256 tokens, uint256 usdAmount, address referrer) private {
+        // Update users mapping with purchase data
+        users[_msgSender()].TotalBoughtTokens += tokens;
+        users[_msgSender()].TotalPaid += usdAmount;
+        users[_msgSender()].lastClaimTime = block.timestamp;
+        
+        // Process referral rewards if referrer is set
+        if (referrer != address(0)) {
+            processReferralRewards(_msgSender(), tokens);
+        }
+    }
+    
+    /**
+     * @dev Handle tokens after purchase based on staking preference
+     */
+    function _handleTokensAfterPurchase(uint256 tokens, bool shouldStake) private {
+        if (shouldStake) {
+            // Directly stake tokens since the contract is pre-funded
+            _handleTokenStaking(_msgSender(), tokens);
+        } else {
+            // Record for later claiming
+            if (userClaimData[_msgSender()][presaleId].totalAmount > 0) {
+                userClaimData[_msgSender()][presaleId].totalAmount += tokens;
+            } else {
+                userClaimData[_msgSender()][presaleId] = ISaleStructs.ClaimData(0, tokens, 0);
+            }
+        }
     }
     
     /**

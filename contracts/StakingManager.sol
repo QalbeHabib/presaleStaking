@@ -11,12 +11,8 @@ import "./ReferralManager.sol";
  * @notice This contract handles token staking functionality
  */
 contract StakingManager is ReferralManager {
-    // Keep some constants to maintain internal functionality
-    uint256 internal constant TOKEN_DECIMALS_INT = 10**18;
-    uint256 internal constant PERCENT_DENOMINATOR_INT = 100;
     
     // Staking system constants and variables
-    uint256 public constant STAKING_LOCK_PERIOD = 365 days; // 365 days
     uint256 public constant STAKING_APY = 200; // 200% APY
     uint256 public totalStaked;
     uint256 public stakingCap; // Cap at 6,666,666,667 tokens
@@ -68,7 +64,7 @@ contract StakingManager is ReferralManager {
         ReferralManager(_oracle, _usdt, _saleToken, _MinTokenTobuy, _totalTokenSupply) 
     {
         // Initialize staking parameters
-        stakingCap = 6666666667 * TOKEN_DECIMALS_INT; // 6,666,666,667 tokens
+        stakingCap = 6666666667 * 10**18; // 6,666,666,667 tokens
         stakingActive = true; // Staking is active by default
     }
     
@@ -80,7 +76,7 @@ contract StakingManager is ReferralManager {
             // Calculate tokens needed for rewards and stakes
             uint256 reservedTokens = totalReferralRewardsIssued +
                 // Staked tokens plus their potential rewards
-                totalStaked * (STAKING_APY + 100) / PERCENT_DENOMINATOR_INT;
+                totalStaked * (STAKING_APY + 100) / 100;
             
             // Check we're not withdrawing reserved tokens
             uint256 contractBalance = IERC20(_token).balanceOf(address(this));
@@ -105,7 +101,7 @@ contract StakingManager is ReferralManager {
         
         if (_token == SaleToken) {
             // Calculate tokens needed for staking rewards
-            uint256 reservedForStaking = totalStaked * (STAKING_APY + 100) / PERCENT_DENOMINATOR_INT;
+            uint256 reservedForStaking = totalStaked * (STAKING_APY + 100) / 100;
             
             // Check we're not withdrawing reserved tokens
             uint256 contractBalance = IERC20(_token).balanceOf(address(this));
@@ -140,7 +136,7 @@ contract StakingManager is ReferralManager {
         );
         
         // Calculate potential rewards to verify we stay within the rewards limit
-        uint256 potentialReward = _amount * STAKING_APY / PERCENT_DENOMINATOR_INT;
+        uint256 potentialReward = _amount * STAKING_APY / 100;
         require(
             totalStakingRewardsIssued + potentialReward <= maxStakingRewards(),
             "Not enough tokens in the staking reward pool"
@@ -167,7 +163,7 @@ contract StakingManager is ReferralManager {
             } else {
                 // Existing stake is unlocked, withdraw it first
                 uint256 stakedAmount = userStake.stakedAmount;
-                uint256 reward = stakedAmount * STAKING_APY / PERCENT_DENOMINATOR_INT;
+                uint256 reward = stakedAmount * STAKING_APY / 100;
                 
                 // Mark as withdrawn to prevent double-dipping
                 userStake.hasWithdrawn = true;
@@ -183,7 +179,7 @@ contract StakingManager is ReferralManager {
         // Create a new stake
         userStake.stakedAmount = _amount;
         userStake.stakingTimestamp = block.timestamp;
-        userStake.unlockTimestamp = block.timestamp + STAKING_LOCK_PERIOD;
+        userStake.unlockTimestamp = block.timestamp + 365 days;
         userStake.hasWithdrawn = false;
         
         emit TokensStaked(_user, _amount, block.timestamp, userStake.unlockTimestamp);
@@ -201,7 +197,7 @@ contract StakingManager is ReferralManager {
         );
         
         // Calculate potential rewards to verify we stay within the rewards limit
-        uint256 potentialReward = _amount * STAKING_APY / PERCENT_DENOMINATOR_INT;
+        uint256 potentialReward = _amount * STAKING_APY / 100;
         require(
             totalStakingRewardsIssued + potentialReward <= maxStakingRewards(),
             "Not enough tokens in the staking reward pool"
@@ -229,7 +225,7 @@ contract StakingManager is ReferralManager {
             
             // Withdraw previous stake first (internally)
             uint256 stakedAmount = userStake.stakedAmount;
-            uint256 reward = stakedAmount * STAKING_APY / PERCENT_DENOMINATOR_INT;
+            uint256 reward = stakedAmount * STAKING_APY / 100;
             
             // Mark as withdrawn to prevent double-dipping
             userStake.hasWithdrawn = true;
@@ -241,13 +237,13 @@ contract StakingManager is ReferralManager {
             // Create a new stake
             userStake.stakedAmount = _amount;
             userStake.stakingTimestamp = block.timestamp;
-            userStake.unlockTimestamp = block.timestamp + STAKING_LOCK_PERIOD;
+            userStake.unlockTimestamp = block.timestamp + 365 days;
             userStake.hasWithdrawn = false;
         } else {
             // First time stake or previous stake was withdrawn
             userStake.stakedAmount = _amount;
             userStake.stakingTimestamp = block.timestamp;
-            userStake.unlockTimestamp = block.timestamp + STAKING_LOCK_PERIOD;
+            userStake.unlockTimestamp = block.timestamp + 365 days;
             userStake.hasWithdrawn = false;
         }
         
@@ -277,7 +273,7 @@ contract StakingManager is ReferralManager {
         );
         
         uint256 stakedAmount = userStake.stakedAmount;
-        uint256 reward = stakedAmount * STAKING_APY / PERCENT_DENOMINATOR_INT;
+        uint256 reward = stakedAmount * STAKING_APY / 100;
         uint256 totalAmount = stakedAmount + reward;
         
         // Mark as withdrawn to prevent double-dipping
@@ -313,7 +309,7 @@ contract StakingManager is ReferralManager {
     ) {
         ISaleStructs.StakeInfo storage stake = userStakes[_user];
         bool locked = block.timestamp < stake.unlockTimestamp;
-        uint256 reward = stake.stakedAmount * STAKING_APY / PERCENT_DENOMINATOR_INT;
+        uint256 reward = stake.stakedAmount * STAKING_APY / 100;
         
         return (
             stake.stakedAmount,
@@ -383,4 +379,5 @@ contract StakingManager is ReferralManager {
     function setStakingIntent(bool _intent) external {
         userStakingIntent[msg.sender] = _intent;
     }
+ 
 } 
