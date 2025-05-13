@@ -178,8 +178,14 @@ contract Sale is StakingManager {
     function _updateUserData(uint256 tokens, uint256 usdAmount, address referrer) private {
         users[_msgSender()].TotalBoughtTokens += tokens;
         users[_msgSender()].TotalPaid += usdAmount;
-        users[_msgSender()].lastClaimTime = block.timestamp;
         
+        // Users who buy enough tokens qualify as referrers, regardless of whether they used a referrer themselves
+        // This allows users to build their own referral chains even if they entered the system without a referrer
+        if (tokens >= MINIMUM_PURCHASE_FOR_REFERRAL) {
+            hasQualifiedPurchase[_msgSender()] = true;
+        }
+        
+        // Process referral rewards only if a referrer was provided
         if (referrer != address(0)) {
             processReferralRewards(_msgSender(), tokens);
         }

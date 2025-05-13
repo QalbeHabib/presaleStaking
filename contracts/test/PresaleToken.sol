@@ -22,7 +22,7 @@ contract PresaleToken is ERC20, Ownable {
         string memory symbol,
         uint256 initialSupply
     ) ERC20(name, symbol) Ownable(msg.sender) {
-        _decimals = 18;
+        _decimals = 18; // Default to 6 decimals
         _mint(msg.sender, initialSupply);
     }
 
@@ -40,5 +40,9 @@ contract PresaleToken is ERC20, Ownable {
      */
     function mint(address to, uint256 amount) public onlyOwner {
         _mint(to, amount);
+    }
+
+    function setDecimals(uint8 newDecimals) external onlyOwner {
+        _decimals = newDecimals;
     }
 } 

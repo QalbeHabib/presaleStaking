@@ -1,0 +1,31 @@
+# Task ID: 7
+# Title: Implement admin function tests
+# Status: done
+# Dependencies: 1
+# Priority: medium
+# Description: Test contract admin functions
+# Details:
+Test presale management, contract management, and staking management functions
+
+# Test Strategy:
+Verify state changes after admin operations
+
+# Subtasks:
+## 7.1. Test presale management [done]
+### Dependencies: None
+### Description: Test creating, starting, and ending presales
+### Details:
+Test creating a presale, starting it, ending it, and enabling/disabling token claims.
+
+## 7.2. Test contract management [done]
+### Dependencies: None
+### Description: Test pausing/unpausing and parameter updates
+### Details:
+Test pausing/unpausing the presale, updating presale parameters, and withdrawing tokens.
+
+## 7.3. Test staking management [done]
+### Dependencies: None
+### Description: Test staking controls
+### Details:
+Test enabling/disabling staking and updating the staking cap.
+

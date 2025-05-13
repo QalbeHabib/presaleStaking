@@ -296,7 +296,7 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
         checkPresaleId(_id)
         returns (uint256 _tokens)
     {
-        _tokens = (amount * 10**18) / presale[_id].price;
+        _tokens = (amount * (10**18)) / presale[_id].price;
     }
 
     /**
@@ -359,25 +359,49 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
     }
 
     /**
-     * @dev Withdraw tokens from contract
+     * @dev Calculate reserved tokens at the base level
+     * This will be overridden by derived contracts to include additional reservations
      */
-    function WithdrawTokens(address _token, uint256 amount) external virtual onlyOwner {
-        // Calculate tokens needed for rewards (base implementation only checks referral)
-        uint256 reservedTokens = 0; // To be overridden in inheriting contracts
-        
-        // Check we're not withdrawing reserved tokens
-        uint256 contractBalance = IERC20(_token).balanceOf(address(this));
-        require(contractBalance - amount >= reservedTokens, "Reserved tokens");
-        
-        bool success = IERC20(_token).transfer(fundReceiver, amount);
-        require(success, "Transfer failed");
+    function calculateBaseReservedTokens() public view virtual returns (uint256) {
+        // At the base level, no tokens are reserved
+        return 0;
     }
 
     /**
-     * @dev Withdraw ETH from contract
+     * @dev Withdraw all available tokens from contract after accounting for reserved tokens
      */
-    function WithdrawContractFunds(uint256 amount) external onlyOwner {
-        SaleUtils.sendValue(payable(fundReceiver), amount);
+    function WithdrawAllTokens(address _token) external virtual onlyOwner {
+        if (_token == SaleToken) {
+            // Calculate reserved tokens (will be overridden in child contracts)
+            uint256 reservedTokens = calculateBaseReservedTokens();
+            
+            // Get current contract balance
+            uint256 contractBalance = IERC20(_token).balanceOf(address(this));
+            
+            // Calculate available amount to withdraw
+            uint256 availableAmount = contractBalance > reservedTokens ? contractBalance - reservedTokens : 0;
+            require(availableAmount > 0, "No tokens available to withdraw");
+            
+            // Transfer available tokens
+            bool success = IERC20(_token).transfer(fundReceiver, availableAmount);
+            require(success, "Transfer failed");
+        } else {
+            // For other tokens, withdraw all
+            uint256 contractBalance = IERC20(_token).balanceOf(address(this));
+            require(contractBalance > 0, "No tokens to withdraw");
+            
+            bool success = IERC20(_token).transfer(fundReceiver, contractBalance);
+            require(success, "Transfer failed");
+        }
+    }
+
+    /**
+     * @dev Withdraw all ETH balance from contract
+     */
+    function WithdrawAllContractFunds() external onlyOwner {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No ETH balance to withdraw");
+        SaleUtils.sendValue(payable(fundReceiver), balance);
     }
 
     /**

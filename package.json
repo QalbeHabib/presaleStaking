@@ -19,6 +19,9 @@
     "format:file": "prettier --config .prettierrc --write",
     "deploy:goerli": "DEPLOY=v1.1.0.goerli hardhat deploy --network goerli",
     "deploy:sepolia": "DEPLOY=sepolia hardhat deploy --network sepolia",
+    "deploy:bscTestnet": "DEPLOY=bscTestnet hardhat deploy --network bscTestnet",
+    "setup:bscTestnet": "hardhat run scripts/bsc-setup.js --network bscTestnet",
+    "direct:bscTestnet": "node scripts/direct-bsc-setup.js",
     "deploy:localhost": "DEPLOY=localhost hardhat deploy --network localhost",
     "local": "hardhat node",
     "test:local": "hardhat run scripts/local-deploy.js --network localhost",
@@ -27,6 +30,7 @@
   },
   "dependencies": {
     "@chainlink/contracts": "0.4.2",
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
     "@openzeppelin/contracts": "^5.0.0",
     "find": "0.3.0",
     "glob": "8.0.3"
@@ -42,7 +46,7 @@
     "colors": "1.4.0",
     "debug": "4.3.4",
     "dotenv": "^16.5.0",
-    "ethers": "5.6.9",
+    "ethers": "^6.8.1",
     "hardhat": "2.10.1",
     "hardhat-dependency-compiler": "1.1.3",
     "hardhat-deploy": "0.11.12",

@@ -1,0 +1,31 @@
+# Task ID: 3
+# Title: Implement staking system tests
+# Status: done
+# Dependencies: 1, 2
+# Priority: high
+# Description: Test the staking functionality
+# Details:
+Test the staking system, including buying with immediate staking, staking rewards, and lock periods
+
+# Test Strategy:
+Verify stake records, unlock timestamps, and reward calculations
+
+# Subtasks:
+## 3.1. Test purchase with staking [done]
+### Dependencies: None
+### Description: Test buying tokens with immediate staking
+### Details:
+Test buying tokens with ETH and USDT with the staking option enabled. Verify stake records and lock periods.
+
+## 3.2. Test staking rewards [done]
+### Dependencies: None
+### Description: Test the 200% APY staking rewards
+### Details:
+Verify the 200% APY reward calculation by fast-forwarding time and withdrawing stakes.
+
+## 3.3. Test staking restrictions [done]
+### Dependencies: None
+### Description: Test staking restrictions and limits
+### Details:
+Test withdrawing before lock period (should fail), staking when cap is reached, and other restrictions.
+

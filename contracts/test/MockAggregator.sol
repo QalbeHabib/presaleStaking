@@ -1,33 +1,38 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-
 /**
- * @title Mock Chainlink Aggregator
- * @notice Mock implementation of Chainlink's price feed aggregator for local testing
- * @dev Returns a fixed price for ETH/USD
+ * @title MockAggregator
+ * @notice Mock Chainlink aggregator for ETH/USD price feed testing
  */
-contract MockAggregator is Ownable {
-    // Using 8 decimals like Chainlink price feeds
-    int256 private _price = 2000 * 10**8; // $2000 per ETH
-    uint80 private _roundId = 1;
+contract MockAggregator {
+    int256 private _answer;
     uint256 private _timestamp;
+    uint80 private _roundId;
     
-    /**
-     * @dev Constructor initializes with default values
-     */
-    constructor() Ownable(msg.sender) {
+    constructor() {
+        _answer = 200000000000; // $2000 with 8 decimals by default
         _timestamp = block.timestamp;
+        _roundId = 1;
     }
     
     /**
-     * @dev Returns the latest round data (price, etc.)
-     * @return roundId The round ID
-     * @return answer The price (in this case, ETH/USD with 8 decimals)
-     * @return startedAt Timestamp when the round started
-     * @return updatedAt Timestamp of the last update
-     * @return answeredInRound The round in which the answer was computed
+     * @dev Set the latest answer (price)
+     * @param answer New price value (with 8 decimals)
+     */
+    function setLatestAnswer(int256 answer) external {
+        _answer = answer;
+        _timestamp = block.timestamp;
+        _roundId++;
+    }
+    
+    /**
+     * @dev Get the latest round data
+     * @return roundId Round ID
+     * @return answer Price answer
+     * @return startedAt Start timestamp
+     * @return updatedAt Update timestamp
+     * @return answeredInRound Round ID of the answer
      */
     function latestRoundData() external view returns (
         uint80 roundId,
@@ -36,16 +41,12 @@ contract MockAggregator is Ownable {
         uint256 updatedAt,
         uint80 answeredInRound
     ) {
-        return (_roundId, _price, _timestamp, _timestamp, _roundId);
-    }
-    
-    /**
-     * @dev Owner can update the price for testing different scenarios
-     * @param newPrice The new price to set (with 8 decimals)
-     */
-    function setPrice(int256 newPrice) external onlyOwner {
-        _price = newPrice;
-        _roundId++;
-        _timestamp = block.timestamp;
+        return (
+            _roundId,
+            _answer,
+            _timestamp,
+            _timestamp,
+            _roundId
+        );
     }
 } 

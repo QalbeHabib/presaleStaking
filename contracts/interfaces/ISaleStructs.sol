@@ -25,7 +25,6 @@ interface ISaleStructs {
         uint256 TotalBoughtTokens;
         uint256 TotalPaid;
         uint256 TotalCollectedReferral;
-        uint256 lastClaimTime;
         address[] referredUsers;
         address referrer;
     }

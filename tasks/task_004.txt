@@ -1,0 +1,31 @@
+# Task ID: 4
+# Title: Implement referral system tests
+# Status: done
+# Dependencies: 1, 2
+# Priority: high
+# Description: Test the referral functionality
+# Details:
+Test the referral system, including referral registration, rewards, and claiming
+
+# Test Strategy:
+Verify referral records, reward calculations, and balances after claiming
+
+# Subtasks:
+## 4.1. Test referral registration [done]
+### Dependencies: None
+### Description: Test registering referrers during purchase
+### Details:
+Test referral registration during ETH and USDT purchases. Verify minimum purchase requirement for qualification.
+
+## 4.2. Test referral rewards [done]
+### Dependencies: None
+### Description: Test referral reward calculations
+### Details:
+Test the 20% reward calculation for both referrer and referee. Verify reward caps and distribution limits.
+
+## 4.3. Test referral restrictions [done]
+### Dependencies: None
+### Description: Test referral restrictions and edge cases
+### Details:
+Test self-referral, circular referrals, and using multiple referrers. All should fail with appropriate errors.
+

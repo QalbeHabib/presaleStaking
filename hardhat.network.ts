@@ -8,10 +8,7 @@ const optimismGoerliRPCUrl = process.env.OPTIMISM_GOERLI_RPC_URL;
 const mumbaiRPCUrl = process.env.MUMBAI_RPC_URL;
 const sepoliaRPCUrl = process.env.SEPOLIA_RPC_URL;
 
-console.log({
-  infuraApiKey,
-  privateKey,
-});
+
 // Prepare accounts configuration - either with private key or empty
 const accountsConfig = privateKey ? [privateKey] : undefined;
 
@@ -81,6 +78,13 @@ if (infuraApiKey && privateKey) {
   networks.sepolia = {
     chainId: 11155111,
     url: sepoliaRPCUrl ? sepoliaRPCUrl : `https://sepolia.infura.io/v3/${infuraApiKey}`,
+    accounts: accountsConfig,
+    timeout: 60000,
+  };
+
+  networks.bscTestnet = {
+    chainId: 97,
+    url: `https://bsc-testnet.infura.io/v3/${infuraApiKey}`,
     accounts: accountsConfig,
     timeout: 60000,
   };

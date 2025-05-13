@@ -1,0 +1,25 @@
+# Task ID: 6
+# Title: Implement limit and edge case tests
+# Status: done
+# Dependencies: 1, 2, 3, 4, 5
+# Priority: medium
+# Description: Test limit conditions and edge cases
+# Details:
+Test purchasing limits, staking caps, and other edge cases
+
+# Test Strategy:
+Verify expected behavior at boundary conditions
+
+# Subtasks:
+## 6.1. Test purchase limits [done]
+### Dependencies: None
+### Description: Test purchasing below minimum amount and above hardcap
+### Details:
+Test buying tokens below the minimum amount (should fail) and attempting to exceed the hardcap (should fail).
+
+## 6.2. Test staking limits [done]
+### Dependencies: None
+### Description: Test staking near the cap and when cap is reached
+### Details:
+Test staking near the cap and when the cap is reached. Verify staking is automatically disabled when cap is reached.
+

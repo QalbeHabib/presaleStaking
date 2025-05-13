@@ -51,6 +51,14 @@ contract StakingManager is ReferralManager {
         uint256 timestamp
     );
     
+    // Define custom errors at contract level
+    error StakingInactive();
+    error ZeroAmount();
+    error CapExceeded();
+    error RewardLimitExceeded();
+    error LockedStakeExists();
+    error TransferFailed();
+    
     /**
      * @dev Constructor initializes staking parameters
      */
@@ -69,22 +77,45 @@ contract StakingManager is ReferralManager {
     }
     
     /**
-     * @dev Override withdraw to account for staking rewards
+     * @dev Calculate total reserved tokens across all systems (referrals and staking)
+     * @return Total reserved tokens that can't be withdrawn
      */
-    function WithdrawTokens(address _token, uint256 amount) external override onlyOwner {
-        if (_token == SaleToken) {
-            // Calculate tokens needed for rewards and stakes
-            uint256 reservedTokens = totalReferralRewardsIssued +
-                // Staked tokens plus their potential rewards
-                totalStaked * (STAKING_APY + 100) / 100;
-            
-            // Check we're not withdrawing reserved tokens
-            uint256 contractBalance = IERC20(_token).balanceOf(address(this));
-            require(contractBalance - amount >= reservedTokens, "Reserved tokens");
-        }
+    function calculateTotalReservedTokens() public view returns (uint256) {
+        // Reserved for referral rewards already issued
+        uint256 referralReserved = totalReferralRewardsIssued;
         
-        bool success = IERC20(_token).transfer(fundReceiver, amount);
-        require(success, "Transfer failed");
+        // Reserved for active stakes plus their potential rewards
+        uint256 stakingReserved = totalStaked * (STAKING_APY + 100) / 100;
+        
+        return referralReserved + stakingReserved;
+    }
+    
+    /**
+     * @dev Override withdraw all tokens to account for staking rewards
+     */
+    function WithdrawAllTokens(address _token) external override onlyOwner {
+        if (_token == SaleToken) {
+            // Get total reserved tokens from the calculation function
+            uint256 reservedTokens = calculateTotalReservedTokens();
+            
+            // Get current contract balance
+            uint256 contractBalance = IERC20(_token).balanceOf(address(this));
+            
+            // Calculate available amount to withdraw
+            uint256 availableAmount = contractBalance > reservedTokens ? contractBalance - reservedTokens : 0;
+            require(availableAmount > 0, "No tokens available to withdraw");
+            
+            // Transfer available tokens
+            bool success = IERC20(_token).transfer(fundReceiver, availableAmount);
+            require(success, "Transfer failed");
+        } else {
+            // For other tokens, withdraw all
+            uint256 contractBalance = IERC20(_token).balanceOf(address(this));
+            require(contractBalance > 0, "No tokens to withdraw");
+            
+            bool success = IERC20(_token).transfer(fundReceiver, contractBalance);
+            require(success, "Transfer failed");
+        }
     }
     
     /**
@@ -97,12 +128,12 @@ contract StakingManager is ReferralManager {
         require(_recipient != address(0), "Zero address");
         
         if (_token == SaleToken) {
-            // Calculate tokens needed for staking rewards
-            uint256 reservedForStaking = totalStaked * (STAKING_APY + 100) / 100;
+            // Use the same calculation function for consistency
+            uint256 reservedTokens = calculateTotalReservedTokens();
             
             // Check we're not withdrawing reserved tokens
             uint256 contractBalance = IERC20(_token).balanceOf(address(this));
-            require(contractBalance - _amount >= reservedForStaking, "Reserved tokens");
+            require(contractBalance - _amount >= reservedTokens, "Reserved tokens");
         }
         
         bool withdrawSuccess = IERC20(_token).transfer(_recipient, _amount);
@@ -147,7 +178,7 @@ contract StakingManager is ReferralManager {
         if (userStake.stakedAmount > 0 && !userStake.hasWithdrawn) {
             // If existing stake is still locked, cannot add to it
             if (block.timestamp < userStake.unlockTimestamp) {
-                revert("Locked stake exists");
+                revert LockedStakeExists();
             } else {
                 // Existing stake is unlocked, withdraw it first
                 _processUnlockedStake(_user, userStake);
@@ -161,7 +192,7 @@ contract StakingManager is ReferralManager {
     /**
      * @dev Process an unlocked stake by returning principal + rewards
      */
-    function _processUnlockedStake(address _user, ISaleStructs.StakeInfo storage userStake) internal {
+    function _processUnlockedStake(address _user, ISaleStructs.StakeInfo storage userStake) private {
         uint256 stakedAmount = userStake.stakedAmount;
         uint256 reward = stakedAmount * STAKING_APY / 100;
         
@@ -191,15 +222,15 @@ contract StakingManager is ReferralManager {
      * @dev Stake tokens with 1-year lock and 200% APY
      */
     function stakeTokens(uint256 _amount) external nonReentrant {
-        require(stakingActive, "Staking inactive");
-        require(_amount > 0, "Zero amount");
-        require(totalStaked + _amount <= stakingCap, "Cap exceeded");
+        if (!stakingActive) revert StakingInactive();
+        if (_amount == 0) revert ZeroAmount();
+        if (totalStaked + _amount > stakingCap) revert CapExceeded();
         
-        // Calculate potential rewards to verify we stay within the rewards limit
+        // Cache rewards calculation
         uint256 potentialReward = _amount * STAKING_APY / 100;
         require(totalStakingRewardsIssued + potentialReward <= maxStakingRewards(), "Reward limit");
         
-        // Update global state
+        // Update state once
         totalStaked += _amount;
         totalStakingRewardsIssued += potentialReward;
         

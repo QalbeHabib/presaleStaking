@@ -14,7 +14,7 @@ import "./libraries/SaleUtils.sol";
 contract ReferralManager is SaleBase {
     // Referral system constants and variables
     uint256 public constant MINIMUM_PURCHASE_FOR_REFERRAL = 1000 * 10**18; // 1000 tokens minimum to qualify for referral
-    uint256 public referralRewardPercentage = 20; // Default 20% reward (configurable)
+    uint8 public referralRewardPercentage = 20; // Default 20% reward (configurable)
     uint256 public totalReferralRewardsIssued;
 
     // Anti-gaming time lock for referral changes
@@ -24,33 +24,13 @@ contract ReferralManager is SaleBase {
     mapping(address => ISaleStructs.ReferralData) public referralData;
     mapping(address => bool) public hasQualifiedPurchase; // Track if user has purchased enough to qualify as referrer
     mapping(address => bool) public hasUsedReferral; // Prevent using multiple referrals
+    mapping(address => mapping(address => bool)) private referredUserExists;
 
-    // Referral Events
-    event ReferralRecorded(
-        address indexed referrer, 
-        address indexed referee, 
-        uint256 timestamp
-    );
-    
-    event ReferralRewardsClaimed(
-        address indexed user, 
-        uint256 amount, 
-        uint256 timestamp
-    );
-    
-    event ReferralPercentageUpdated(
-        uint256 previousPercentage, 
-        uint256 newPercentage, 
-        uint256 timestamp
-    );
-    
-    event ReferralRewardsAdded(
-        address indexed referrer, 
-        address indexed referee, 
-        uint256 referrerReward, 
-        uint256 refereeReward, 
-        uint256 timestamp
-    );
+    // Events
+    event ReferralRecorded(address indexed referrer, address indexed referee, uint256 timestamp);
+    event ReferralRewardsClaimed(address indexed user, uint256 amount, uint256 timestamp);
+    event ReferralPercentageUpdated(uint256 previousPercentage, uint256 newPercentage, uint256 timestamp);
+    event ReferralRewardsAdded(address indexed referrer, address indexed referee, uint256 referrerReward, uint256 refereeReward, uint256 timestamp);
 
     /**
      * @dev Constructor initializes with same parameters as SaleBase
@@ -64,45 +44,56 @@ contract ReferralManager is SaleBase {
     ) 
         SaleBase(_oracle, _usdt, _SaleToken, _MinTokenTobuy, _totalTokenSupply) 
     {
-        // Initialize referral-specific parameters
         referralPercentageChangeTimeLock = block.timestamp;
     }
 
     /**
-     * @dev Override withdraw to account for referral rewards
+     * @dev Override the base calculation to include referral rewards
      */
-    function WithdrawTokens(address _token, uint256 amount) external virtual override onlyOwner {
+    function calculateBaseReservedTokens() public view virtual override returns (uint256) {
+        // Include referral rewards in the reserved tokens
+        return totalReferralRewardsIssued;
+    }
+
+    /**
+     * @dev Override withdraw all tokens to account for referral rewards
+     */
+    function WithdrawAllTokens(address _token) external virtual override onlyOwner {
         if (_token == SaleToken) {
             // Calculate tokens needed for rewards
-            uint256 reservedTokens = totalReferralRewardsIssued;
+            uint256 reservedTokens = calculateBaseReservedTokens();
             
-            // Check we're not withdrawing reserved tokens
+            // Get current contract balance
             uint256 contractBalance = IERC20(_token).balanceOf(address(this));
-            require(
-                contractBalance - amount >= reservedTokens,
-                "Cannot withdraw tokens reserved for rewards"
-            );
+            
+            // Calculate available amount to withdraw
+            uint256 availableAmount = contractBalance > reservedTokens ? contractBalance - reservedTokens : 0;
+            require(availableAmount > 0, "No tokens available to withdraw");
+            
+            // Transfer available tokens
+            require(IERC20(_token).transfer(fundReceiver, availableAmount), "Token transfer failed");
+        } else {
+            // For other tokens, withdraw all
+            uint256 contractBalance = IERC20(_token).balanceOf(address(this));
+            require(contractBalance > 0, "No tokens to withdraw");
+            
+            require(IERC20(_token).transfer(fundReceiver, contractBalance), "Token transfer failed");
         }
-        
-        bool success = IERC20(_token).transfer(fundReceiver, amount);
-        require(success, "Token transfer failed");
     }
 
     /**
      * @dev Change referral reward percentage with timelock protection
      * @param _percentage New percentage (1-20)
      */
-    function updateReferralRewardPercentage(uint256 _percentage) external onlyOwner {
+    function updateReferralRewardPercentage(uint8 _percentage) external onlyOwner {
         require(_percentage > 0 && _percentage <= 20, "Invalid percentage");
         require(block.timestamp >= referralPercentageChangeTimeLock, "Timelock active");
         
         // Set new timelock for future changes
         referralPercentageChangeTimeLock = block.timestamp + 24 hours;
         
-        uint256 oldPercentage = referralRewardPercentage;
+        emit ReferralPercentageUpdated(referralRewardPercentage, _percentage, block.timestamp);
         referralRewardPercentage = _percentage;
-        
-        emit ReferralPercentageUpdated(oldPercentage, _percentage, block.timestamp);
     }
 
     /**
@@ -117,6 +108,7 @@ contract ReferralManager is SaleBase {
         // Prevent circular referrals
         require(referralData[_referrer].referrer != msg.sender, "Circular referral");
         
+        // Check for circular chains
         address currentReferrer = referralData[_referrer].referrer;
         while (currentReferrer != address(0)) {
             require(currentReferrer != msg.sender, "Circular chain");
@@ -129,29 +121,17 @@ contract ReferralManager is SaleBase {
         hasUsedReferral[msg.sender] = true;
         
         // Update referrer stats
-        referralData[_referrer].hasReferred = true;
-        referralData[_referrer].referralCount++;
+        ISaleStructs.ReferralData storage refData = referralData[_referrer];
+        refData.hasReferred = true;
+        refData.referralCount++;
         
-        // Add user to referrer's referredUsers array in users struct
-        _addToReferredUsers(_referrer, msg.sender);
+        // Add user to referrer's referredUsers array
+        if (!referredUserExists[_referrer][msg.sender]) {
+            users[_referrer].referredUsers.push(msg.sender);
+            referredUserExists[_referrer][msg.sender] = true;
+        }
         
         emit ReferralRecorded(_referrer, msg.sender, block.timestamp);
-    }
-
-    /**
-     * @dev Add user to referrer's referred list
-     */
-    function _addToReferredUsers(address _referrer, address _user) internal {
-        bool alreadyReferred = false;
-        for (uint i = 0; i < users[_referrer].referredUsers.length; i++) {
-            if (users[_referrer].referredUsers[i] == _user) {
-                alreadyReferred = true;
-                break;
-            }
-        }
-        if (!alreadyReferred) {
-            users[_referrer].referredUsers.push(_user);
-        }
     }
 
     /**
@@ -160,39 +140,26 @@ contract ReferralManager is SaleBase {
      * @param _tokenAmount Amount of tokens purchased
      */
     function processReferralRewards(address _user, uint256 _tokenAmount) public {
-        // Check if purchase meets minimum for referral qualification
         if (_tokenAmount >= MINIMUM_PURCHASE_FOR_REFERRAL) {
             hasQualifiedPurchase[_user] = true;
-        }
-        
-        // If user has a referrer, calculate and assign rewards
-        address referrer = referralData[_user].referrer;
-        if (referrer != address(0) && _tokenAmount >= MINIMUM_PURCHASE_FOR_REFERRAL) {
-            // Calculate rewards (both get the same percentage)
-            uint256 referrerReward = _tokenAmount * referralRewardPercentage / 100;
-            uint256 refereeReward = referrerReward; // Same reward for both parties
             
-            // Check against the max referral rewards cap
-            uint256 totalNewRewards = referrerReward + refereeReward;
-            if (totalReferralRewardsIssued + totalNewRewards <= maxReferralRewards) {
-                // Update referrer's rewards
-                referralData[referrer].totalReferralRewards = 
-                    referralData[referrer].totalReferralRewards + referrerReward;
+            address referrer = referralData[_user].referrer;
+            if (referrer != address(0)) {
+                // Calculate rewards
+                uint256 referrerReward = _tokenAmount * referralRewardPercentage / 100;
+                uint256 totalNewRewards = referrerReward * 2; // Both get same reward
                 
-                // Update referee's rewards
-                referralData[_user].totalReferralRewards = 
-                    referralData[_user].totalReferralRewards + refereeReward;
-                
-                // Update total rewards issued
-                totalReferralRewardsIssued = totalReferralRewardsIssued + totalNewRewards;
-                
-                emit ReferralRewardsAdded(
-                    referrer, 
-                    _user, 
-                    referrerReward, 
-                    refereeReward, 
-                    block.timestamp
-                );
+                // Update rewards if under max cap
+                if (totalReferralRewardsIssued + totalNewRewards <= maxReferralRewards) {
+                    // Update referral data structs
+                    referralData[referrer].totalReferralRewards += referrerReward;
+                    referralData[_user].totalReferralRewards += referrerReward;
+                    
+                    // Update global rewards counter
+                    totalReferralRewardsIssued += totalNewRewards;
+                    
+                    emit ReferralRewardsAdded(referrer, _user, referrerReward, referrerReward, block.timestamp);
+                }
             }
         }
     }
@@ -209,29 +176,29 @@ contract ReferralManager is SaleBase {
     /**
      * @dev Claim referral rewards
      */
-    function claimReferralRewards() external nonReentrant returns (bool) {
+    function claimReferralRewards() public nonReentrant returns (bool) {
         uint256 amount = getClaimableReferralRewards(msg.sender);
         require(amount > 0, "No rewards to claim");
         
         // Verify there are enough tokens in the contract
-        require(
-            amount <= IERC20(SaleToken).balanceOf(address(this)),
-            "Not enough tokens in the contract"
-        );
+        require(amount <= IERC20(SaleToken).balanceOf(address(this)), "Not enough tokens in contract");
         
-        // Update claimed amount
-        referralData[msg.sender].claimedReferralRewards = 
-            referralData[msg.sender].claimedReferralRewards + amount;
+        // Update claimed amount first to prevent reentrancy
+        referralData[msg.sender].claimedReferralRewards += amount;
+        
+        // Update the total collected referral rewards in the users mapping
+        users[msg.sender].TotalCollectedReferral += amount;
         
         // Transfer tokens
-        bool success = IERC20(SaleToken).transfer(msg.sender, amount);
-        require(success, "Token transfer failed");
+        require(IERC20(SaleToken).transfer(msg.sender, amount), "Token transfer failed");
         
         emit ReferralRewardsClaimed(msg.sender, amount, block.timestamp);
         return true;
     }
 
-    // Get user referral info for frontend
+    /**
+     * @dev Get user referral info for frontend
+     */
     function getUserReferralInfo(address _user) external view returns (
         address referrer,
         uint256 totalRewards,
@@ -251,7 +218,16 @@ contract ReferralManager is SaleBase {
         );
     }
 
-    // Get referral program stats
+    /**
+     * @dev Get user's total collected referral rewards
+     */
+    function getUserCollectedReferrals(address _user) external view returns (uint256) {
+        return users[_user].TotalCollectedReferral;
+    }
+
+    /**
+     * @dev Get referral program stats
+     */
     function getReferralProgramStats() external view returns (
         uint256 currentPercentage,
         uint256 totalRewardsIssued,
@@ -277,7 +253,9 @@ contract ReferralManager is SaleBase {
         maxReferralRewards = _totalSupply * 5 / 100;
     }
 
-    // Check if a user has a valid referral link to share
+    /**
+     * @dev Check if a user has a valid referral link to share
+     */
     function canReferOthers(address _user) external view returns (bool) {
         return hasQualifiedPurchase[_user];
     }
@@ -286,18 +264,19 @@ contract ReferralManager is SaleBase {
      * @dev Check if a user can be referred by a specific referrer
      */
     function canBeReferred(address _referrer, address _referee) external view returns (bool isEligible, uint8 reason) {
-        if (hasUsedReferral[_referee]) return (false, 1);
-        if (_referrer == _referee) return (false, 2);
-        if (!hasQualifiedPurchase[_referrer]) return (false, 3);
-        if (referralData[_referrer].referrer == _referee) return (false, 2);
+        if (hasUsedReferral[_referee]) return (false, 1); // Already referred
+        if (_referrer == _referee) return (false, 2); // Self-referral
+        if (!hasQualifiedPurchase[_referrer]) return (false, 3); // Unqualified referrer
+        if (referralData[_referrer].referrer == _referee) return (false, 2); // Direct circular referral
         
+        // Check for circular chain
         address currentReferrer = referralData[_referrer].referrer;
         while (currentReferrer != address(0)) {
-            if (currentReferrer == _referee) return (false, 2);
+            if (currentReferrer == _referee) return (false, 2); // Found in chain
             currentReferrer = referralData[currentReferrer].referrer;
         }
         
-        return (true, 0);
+        return (true, 0); // Eligible
     }
     
     /**
@@ -326,4 +305,4 @@ contract ReferralManager is SaleBase {
         
         return chain;
     }
-} 
+}

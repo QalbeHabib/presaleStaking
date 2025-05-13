@@ -1,0 +1,297 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Set up test environment",
+      "description": "Prepare the testing environment for smart contract tests",
+      "status": "done",
+      "priority": "high",
+      "details": "- Deploy test ERC20 tokens (Sale token and USDT)\n- Deploy Chainlink mock price feed for ETH/USD\n- Deploy and configure Sale contract with appropriate parameters\n- Fund contract with required token allocations (55% of supply)\n- Create test accounts with different roles (owner, buyers, referrers)",
+      "testStrategy": "Verify all components are properly deployed and initialized",
+      "dependencies": [],
+      "subtasks": [
+        {
+          "id": 1.1,
+          "title": "Create ERC20 test tokens",
+          "description": "Deploy test ERC20 tokens for Sale token and USDT",
+          "status": "done",
+          "details": "Create mock ERC20 tokens for testing with appropriate supplies and decimals. USDT should have 6 decimals.",
+          "testStrategy": "Verify token deployment and balance minting"
+        },
+        {
+          "id": 1.2,
+          "title": "Create mock price feed",
+          "description": "Create a mock Chainlink price feed for ETH/USD",
+          "status": "done",
+          "details": "Implement a mock Chainlink aggregator that returns a configurable ETH/USD price for testing",
+          "testStrategy": "Verify price feed returns expected values"
+        },
+        {
+          "id": 1.3,
+          "title": "Deploy Sale contract",
+          "description": "Deploy the Sale contract with test parameters",
+          "status": "done",
+          "details": "Deploy the Sale contract with the test tokens and price feed. Set appropriate parameters for testing.",
+          "testStrategy": "Verify contract deployment and initialization"
+        },
+        {
+          "id": 1.4,
+          "title": "Configure test accounts",
+          "description": "Set up test accounts with appropriate roles and balances",
+          "status": "done",
+          "details": "Create and fund test accounts for different roles: owner, buyers, referrers, etc.",
+          "testStrategy": "Verify account balances and permissions"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Implement token purchase tests",
+      "description": "Test purchasing tokens with ETH and USDT",
+      "status": "done",
+      "priority": "high",
+      "details": "Test purchasing tokens with both ETH and USDT payment methods, verifying correct token calculations and state changes",
+      "testStrategy": "Verify token balances before and after purchases, and check all relevant state variables and events",
+      "dependencies": [
+        1
+      ],
+      "subtasks": [
+        {
+          "id": 2.1,
+          "title": "Test ETH purchases",
+          "description": "Test buying tokens with ETH",
+          "status": "done",
+          "details": "Test buying tokens with ETH with minimum amount, large amount, and near hardcap. Verify correct token calculation based on ETH price feed.",
+          "testStrategy": "Compare expected vs actual token amounts, verify events and state changes"
+        },
+        {
+          "id": 2.2,
+          "title": "Test USDT purchases",
+          "description": "Test buying tokens with USDT",
+          "status": "done",
+          "details": "Test buying tokens with USDT with minimum amount, large amount, and near hardcap. Verify correct token calculation.",
+          "testStrategy": "Compare expected vs actual token amounts, verify events and state changes"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Implement staking system tests",
+      "description": "Test the staking functionality",
+      "status": "done",
+      "priority": "high",
+      "details": "Test the staking system, including buying with immediate staking, staking rewards, and lock periods",
+      "testStrategy": "Verify stake records, unlock timestamps, and reward calculations",
+      "dependencies": [
+        1,
+        2
+      ],
+      "subtasks": [
+        {
+          "id": 3.1,
+          "title": "Test purchase with staking",
+          "description": "Test buying tokens with immediate staking",
+          "status": "done",
+          "details": "Test buying tokens with ETH and USDT with the staking option enabled. Verify stake records and lock periods.",
+          "testStrategy": "Verify stake records and lock periods are correctly set"
+        },
+        {
+          "id": 3.2,
+          "title": "Test staking rewards",
+          "description": "Test the 200% APY staking rewards",
+          "status": "done",
+          "details": "Verify the 200% APY reward calculation by fast-forwarding time and withdrawing stakes.",
+          "testStrategy": "Compare expected vs actual rewards after time manipulation"
+        },
+        {
+          "id": 3.3,
+          "title": "Test staking restrictions",
+          "description": "Test staking restrictions and limits",
+          "status": "done",
+          "details": "Test withdrawing before lock period (should fail), staking when cap is reached, and other restrictions.",
+          "testStrategy": "Verify expected reverts and error messages"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Implement referral system tests",
+      "description": "Test the referral functionality",
+      "status": "done",
+      "priority": "high",
+      "details": "Test the referral system, including referral registration, rewards, and claiming",
+      "testStrategy": "Verify referral records, reward calculations, and balances after claiming",
+      "dependencies": [
+        1,
+        2
+      ],
+      "subtasks": [
+        {
+          "id": 4.1,
+          "title": "Test referral registration",
+          "description": "Test registering referrers during purchase",
+          "status": "done",
+          "details": "Test referral registration during ETH and USDT purchases. Verify minimum purchase requirement for qualification.",
+          "testStrategy": "Verify referral records and relationships"
+        },
+        {
+          "id": 4.2,
+          "title": "Test referral rewards",
+          "description": "Test referral reward calculations",
+          "status": "done",
+          "details": "Test the 20% reward calculation for both referrer and referee. Verify reward caps and distribution limits.",
+          "testStrategy": "Compare expected vs actual reward amounts"
+        },
+        {
+          "id": 4.3,
+          "title": "Test referral restrictions",
+          "description": "Test referral restrictions and edge cases",
+          "status": "done",
+          "details": "Test self-referral, circular referrals, and using multiple referrers. All should fail with appropriate errors.",
+          "testStrategy": "Verify expected reverts and error messages"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Implement combined functionality tests",
+      "description": "Test purchasing with both referral and staking",
+      "status": "done",
+      "priority": "medium",
+      "details": "Test the combined functionality of purchasing with both referral and staking options",
+      "testStrategy": "Verify all calculations, records, and state changes for the combined functionality",
+      "dependencies": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "subtasks": [
+        {
+          "id": 5.1,
+          "title": "Test ETH purchase with referral and staking",
+          "description": "Test buying with ETH, using a referrer, and immediate staking",
+          "status": "done",
+          "details": "Test buying tokens with ETH, referral, and immediate staking. Verify all calculations and state changes.",
+          "testStrategy": "Verify token balances, stake records, referral rewards, and events"
+        },
+        {
+          "id": 5.2,
+          "title": "Test USDT purchase with referral and staking",
+          "description": "Test buying with USDT, using a referrer, and immediate staking",
+          "status": "done",
+          "details": "Test buying tokens with USDT, referral, and immediate staking. Verify all calculations and state changes.",
+          "testStrategy": "Verify token balances, stake records, referral rewards, and events"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Implement limit and edge case tests",
+      "description": "Test limit conditions and edge cases",
+      "status": "done",
+      "priority": "medium",
+      "details": "Test purchasing limits, staking caps, and other edge cases",
+      "testStrategy": "Verify expected behavior at boundary conditions",
+      "dependencies": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "subtasks": [
+        {
+          "id": 6.1,
+          "title": "Test purchase limits",
+          "description": "Test purchasing below minimum amount and above hardcap",
+          "status": "done",
+          "details": "Test buying tokens below the minimum amount (should fail) and attempting to exceed the hardcap (should fail).",
+          "testStrategy": "Verify expected reverts and error messages"
+        },
+        {
+          "id": 6.2,
+          "title": "Test staking limits",
+          "description": "Test staking near the cap and when cap is reached",
+          "status": "done",
+          "details": "Test staking near the cap and when the cap is reached. Verify staking is automatically disabled when cap is reached.",
+          "testStrategy": "Verify state changes and expected behaviors"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Implement admin function tests",
+      "description": "Test contract admin functions",
+      "status": "done",
+      "priority": "medium",
+      "details": "Test presale management, contract management, and staking management functions",
+      "testStrategy": "Verify state changes after admin operations",
+      "dependencies": [
+        1
+      ],
+      "subtasks": [
+        {
+          "id": 7.1,
+          "title": "Test presale management",
+          "description": "Test creating, starting, and ending presales",
+          "status": "done",
+          "details": "Test creating a presale, starting it, ending it, and enabling/disabling token claims.",
+          "testStrategy": "Verify state changes and events"
+        },
+        {
+          "id": 7.2,
+          "title": "Test contract management",
+          "description": "Test pausing/unpausing and parameter updates",
+          "status": "done",
+          "details": "Test pausing/unpausing the presale, updating presale parameters, and withdrawing tokens.",
+          "testStrategy": "Verify state changes and restrictions during paused state"
+        },
+        {
+          "id": 7.3,
+          "title": "Test staking management",
+          "description": "Test staking controls",
+          "status": "done",
+          "details": "Test enabling/disabling staking and updating the staking cap.",
+          "testStrategy": "Verify state changes and events"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Implement system integration tests",
+      "description": "Test end-to-end workflows and multi-user scenarios",
+      "status": "done",
+      "priority": "low",
+      "details": "Test complete workflows and multi-user interactions",
+      "testStrategy": "Verify correct behavior in complex scenarios",
+      "dependencies": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "subtasks": [
+        {
+          "id": 8.1,
+          "title": "Test end-to-end workflows",
+          "description": "Test complete user journeys through the system",
+          "status": "done",
+          "details": "Test complete workflows from purchase to claiming rewards after time passage.",
+          "testStrategy": "Verify all components work together as expected"
+        },
+        {
+          "id": 8.2,
+          "title": "Test multi-user scenarios",
+          "description": "Test multiple users interacting with the system",
+          "status": "done",
+          "details": "Test scenarios with multiple users buying, referring each other, and staking simultaneously.",
+          "testStrategy": "Verify correct behavior with concurrent users"
+        }
+      ]
+    }
+  ]
+}

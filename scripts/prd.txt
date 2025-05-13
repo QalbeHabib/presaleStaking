@@ -1,0 +1,210 @@
+<context>
+# Overview  
+This PRD outlines comprehensive test scenarios for the Presale Staking Smart Contract. The contract enables users to participate in token presales with options for referrals and staking. This testing plan ensures all core functionalities work as expected while covering edge cases and security considerations.
+
+# Core Features to Test
+- Token purchasing with ETH and USDT
+- Token purchase with and without staking
+- Referral system functionality
+- Integration between presale, staking, and referral systems
+- Security mechanisms and restrictions
+</context>
+<PRD>
+# Technical Test Architecture
+
+## Test Environment Setup
+- Deploy test ERC20 tokens (Sale token and USDT)
+- Deploy Chainlink mock price feed for ETH/USD
+- Deploy and configure Sale contract with appropriate parameters
+- Fund contract with required token allocations (55% of supply)
+- Create test accounts with different roles (owner, buyers, referrers)
+
+## Test Categories
+
+### 1. Token Purchase Tests
+- **ETH Purchase Tests**
+  - Purchase tokens with ETH with minimum amount
+  - Purchase tokens with ETH with large amount
+  - Purchase tokens with ETH near hardcap
+  - Verify correct token amount calculation based on ETH price feed
+  - Verify USDT equivalent is correctly calculated and recorded
+  
+- **USDT Purchase Tests**
+  - Purchase tokens with USDT with minimum amount
+  - Purchase tokens with USDT with large amount
+  - Purchase tokens with USDT near hardcap
+  - Verify token amount calculation based on USDT price
+
+### 2. Staking System Tests
+- **Purchase with Staking**
+  - Purchase tokens with ETH and immediate staking
+  - Purchase tokens with USDT and immediate staking
+  - Verify staked amount is correctly recorded
+  - Verify unlock timestamp is set to 365 days from purchase
+  
+- **Staking Rewards**
+  - Verify 200% APY calculation
+  - Test stake withdrawal after lock period
+  - Test stake withdrawal attempt before lock period
+
+### 3. Referral System Tests
+- **Referral Registration**
+  - Register referrer during ETH purchase
+  - Register referrer during USDT purchase
+  - Verify minimum purchase requirement for referral qualification
+  
+- **Referral Rewards**
+  - Verify 20% reward calculation for both referrer and referee
+  - Test claiming referral rewards
+  - Verify reward cap and distribution limits
+
+### 4. Combined Function Tests
+- **ETH Purchase with Referral and Staking**
+  - Purchase tokens with ETH, referral, and immediate staking
+  - Verify all reward calculations and record keeping
+  
+- **USDT Purchase with Referral and Staking**
+  - Purchase tokens with USDT, referral, and immediate staking
+  - Verify all reward calculations and record keeping
+
+### 5. Limit and Edge Case Tests
+- **Purchase Limits**
+  - Test purchasing below minimum token amount
+  - Test purchasing above hardcap
+  
+- **Staking Limits**
+  - Test staking near the staking cap
+  - Test staking when cap is reached
+  
+- **Referral Restrictions**
+  - Test self-referral (should fail)
+  - Test circular referrals (should fail)
+  - Test using multiple referrers (should fail after first)
+
+### 6. Admin Function Tests
+- **Presale Management**
+  - Test creating a presale
+  - Test starting and ending presale
+  - Test enabling/disabling token claims
+  
+- **Contract Management**
+  - Test pausing/unpausing presale
+  - Test updating presale parameters
+  - Test withdrawing tokens
+  
+- **Staking Management**
+  - Test enabling/disabling staking
+  - Test updating staking cap
+
+## Test Verification Methods
+- Assert expected vs. actual token balances
+- Verify events are emitted with correct parameters
+- Check state changes in mappings and storage variables
+- Test reverts with expected error messages
+- Verify gas usage in common operations
+
+# Development Roadmap
+
+## Phase 1: Basic Functionality Tests
+- Environment setup and contract deployment
+- Basic token purchase tests (both ETH and USDT)
+- Basic staking tests
+- Basic referral tests
+
+## Phase 2: Combined Functionality Tests
+- ETH purchase with staking
+- USDT purchase with staking
+- ETH purchase with referral
+- USDT purchase with referral
+- Full combinations (purchase with both referral and staking)
+
+## Phase 3: Edge Cases and Restrictions
+- All limit tests and edge cases
+- Security and restriction tests
+- Admin function tests
+- Gas optimization tests
+
+## Phase 4: System Integration Tests
+- End-to-end workflows
+- Multi-user interaction scenarios
+- Long-term scenarios (time-based tests)
+
+# Logical Dependency Chain
+1. Deploy and configure test environment
+2. Test basic purchase functionality
+3. Test staking in isolation
+4. Test referrals in isolation
+5. Test combined features
+6. Test edge cases and restrictions
+7. Test admin functions
+8. Run system-wide integration tests
+
+# Risks and Mitigations
+
+## Technical Challenges
+- **Challenge**: Simulating time passage for staking tests
+  **Mitigation**: Use hardhat's time manipulation functions
+
+- **Challenge**: Mocking ETH/USD price feed
+  **Mitigation**: Create a mock Chainlink aggregator contract
+
+- **Challenge**: Testing complex referral scenarios
+  **Mitigation**: Create detailed test cases with multiple accounts
+
+- **Challenge**: Detecting subtle calculation errors
+  **Mitigation**: Create test cases with predicted values calculated off-chain
+
+## Resource Constraints
+- **Challenge**: Large number of test scenarios
+  **Mitigation**: Prioritize tests based on core functionality and risk
+
+- **Challenge**: Limited mainnet testing before deployment
+  **Mitigation**: Comprehensive testnet validation with realistic parameters
+
+# Appendix
+
+## Test Case Templates
+
+### Purchase Test Template
+```javascript
+describe("Token Purchase", function() {
+  it("should correctly calculate tokens when buying with ETH", async function() {
+    // Setup
+    // Execute purchase
+    // Verify token amount
+    // Verify events
+    // Verify state changes
+  });
+}
+```
+
+### Staking Test Template
+```javascript
+describe("Token Staking", function() {
+  it("should correctly stake tokens with 365-day lock", async function() {
+    // Setup
+    // Execute stake
+    // Verify stake recorded
+    // Verify unlock time
+    // Fast-forward time
+    // Withdraw stake + rewards
+    // Verify final balances
+  });
+}
+```
+
+### Referral Test Template
+```javascript
+describe("Referral System", function() {
+  it("should correctly record and reward referrals", async function() {
+    // Setup accounts
+    // Qualify referrer
+    // Purchase with referral
+    // Verify referral recorded
+    // Verify rewards calculated
+    // Claim rewards
+    // Verify final balances
+  });
+}
+```
+</PRD> 

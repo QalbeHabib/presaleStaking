@@ -1,6 +1,6 @@
 import { dim } from 'chalk';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import '@nomiclabs/hardhat-ethers';
+import '@nomicfoundation/hardhat-ethers';
 import 'hardhat-deploy';
 import { DeployFunction } from 'hardhat-deploy/types';
 import { run } from 'hardhat';
@@ -10,18 +10,19 @@ import { deployAndLog } from '../src/deployAndLog';
 const PRICE_FEED = {
   11155111: '0x694AA1769357215DE4FAC081bf1f309aDC325306', // ETH/USD on Sepolia
   1: '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419', // ETH/USD on Mainnet
+  97: '0x1A26d803C2e796601794f8C5609549643832702C', // ETH/USD on BSC Testnet
 };
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  if (process.env.DEPLOY === 'sepolia') {
-    dim(`Deploying: Ethereum Sepolia`);
+  if (process.env.DEPLOY === 'bscTestnet') {
+    dim(`Deploying: BSC Testnet`);
   } else {
     return;
   }
 
   const { getNamedAccounts, ethers, network } = hre;
   const { deployer } = await getNamedAccounts();
-  const chainId = network.config.chainId || 11155111;
+  const chainId = network.config.chainId || 97;
 
   console.log(`Deploying to chainId: ${chainId}`);
 
@@ -33,23 +34,23 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // Total token supply - 100 billion tokens with 18 decimals
   const totalTokenSupply = ethers.parseEther('100000000000');
 
-  // const presaleToken = await deployAndLog('PresaleToken', {
-  //   from: deployer,
-  //   args: ["Presale Token", "PRESALE", totalTokenSupply],
-  //   skipIfAlreadyDeployed: true,
-  //   log: true,
-  // });
+  const presaleToken = await deployAndLog('PresaleToken', {
+    from: deployer,
+    args: ["Presale Token", "PRESALE", totalTokenSupply],
+    skipIfAlreadyDeployed: true,
+    log: true,
+  });
 
   console.log(`\nDeploying TeatherUSDT...`);
   // Deploy USDT with 6 decimals and mint 10 million for testing
   const usdtInitialSupply = ethers.parseUnits('100000000000', 6); // 10 million with 6 decimals
 
-  // const teatherUsdt = await deployAndLog('TeatherUSDT', {
-  //   from: deployer,
-  //   args: ["Tether USD", "USDT", usdtInitialSupply],
-  //   skipIfAlreadyDeployed: true,
-  //   log: true,
-  // });
+  const teatherUsdt = await deployAndLog('TeatherUSDT', {
+    from: deployer,
+    args: ["Tether USD", "USDT", usdtInitialSupply],
+    skipIfAlreadyDeployed: true,
+    log: true,
+  });
 
   // console.log(`PresaleToken deployed at: ${presaleToken.address}`);
   // console.log(`TeatherUSDT deployed at: ${teatherUsdt.address}`);
@@ -58,14 +59,14 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // Deploy SaleUtils Library
   // ===================================================
   // console.log(`\nDeploying SaleUtils library...`);
-  // const saleUtils = await deployAndLog('SaleUtils', {
-  //   from: deployer,
-  //   args: [],
-  //   skipIfAlreadyDeployed: true,
-  //   log: true,
-  // });
+  const saleUtils = await deployAndLog('SaleUtils', {
+    from: deployer,
+    args: [],
+    skipIfAlreadyDeployed: true,
+    log: true,
+  });
 
-  // console.log(`SaleUtils deployed at: ${saleUtils.address}`);
+  console.log(`SaleUtils deployed at: ${saleUtils.address}`);
 
   // ===================================================
   // Deploy Sale Contract
@@ -76,11 +77,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   console.log(`Using oracle address: ${oracleAddress}`);
 
   // Token addresses - use our deployed tokens
-  const tokenAddress = "0xeC5bd71EbC0f48024ED4aF9CC5abB66060198306"
-  const usdtAddress = "0x3454C6F3005437D97A77686F6F28cc61E2330Be0"
-  const saleUtilsAddress = "0x23A92400A88B1F849D315471c2a3F1FDB311774d"
-  console.log(`Using token address: ${tokenAddress}`);
-  console.log(`Using USDT address: ${usdtAddress}`);
+//   const tokenAddress = "0xeC5bd71EbC0f48024ED4aF9CC5abB66060198306"
+//   const usdtAddress = "0x3454C6F3005437D97A77686F6F28cc61E2330Be0"
+//   const saleUtilsAddress = "0x23A92400A88B1F849D315471c2a3F1FDB311774d"
+  console.log(`Using token address: ${presaleToken.address}`);
+  console.log(`Using USDT address: ${teatherUsdt.address}`);
 
   // Minimum tokens to buy
   const minTokenToBuy = ethers.parseEther('10');
@@ -89,8 +90,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // Prepare constructor arguments
   const constructorArgs = [
     oracleAddress,
-    usdtAddress,
-    tokenAddress,
+    teatherUsdt.address,
+    presaleToken.address,
     minTokenToBuy,
     totalTokenSupply,
   ];
@@ -103,7 +104,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     skipIfAlreadyDeployed: true,
     log: true,
     libraries: {
-      SaleUtils: saleUtilsAddress
+      SaleUtils: saleUtils.address
     }
   });
 
@@ -125,40 +126,40 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // Verify PresaleToken
   try {
     console.log(`\nVerifying PresaleToken...`);
-    // await run('verify:verify', {
-    //   address: "0xeC5bd71EbC0f48024ED4aF9CC5abB66060198306",
-    //   constructorArguments: ["Presale Token", "PRESALE", totalTokenSupply.toString()],
-    //   contract: "contracts/test/PresaleToken.sol:PresaleToken"
-    // });
-    // console.log(`PresaleToken verified successfully!`);
+    await run('verify:verify', {
+      address: presaleToken.address,
+      constructorArguments: ["Presale Token", "PRESALE", totalTokenSupply.toString()],
+      contract: "contracts/test/PresaleToken.sol:PresaleToken"
+    });
+    console.log(`PresaleToken verified successfully!`);
   } catch (error) {
-    handleVerificationError(error, "0xeC5bd71EbC0f48024ED4aF9CC5abB66060198306");
+    handleVerificationError(error, presaleToken.address);
   }
 
   // Verify TeatherUSDT
   try {
-    // console.log(`\nVerifying TeatherUSDT...`);
-    // await run('verify:verify', {
-    //   address: "0x4D1D5fD48F7d6BAE9fd45955Edc292575B0D0D1f",
-    //   constructorArguments: ["Tether USD", "USDT", usdtInitialSupply.toString()],
-    //   contract: "contracts/test/TeatherUSDT.sol:TeatherUSDT"
-    // });
-    // console.log(`TeatherUSDT verified successfully!`);
+    console.log(`\nVerifying TeatherUSDT...`);
+    await run('verify:verify', {
+      address: teatherUsdt.address,
+      constructorArguments: ["Tether USD", "USDT", usdtInitialSupply.toString()],
+      contract: "contracts/test/TeatherUSDT.sol:TeatherUSDT"
+    });
+    console.log(`TeatherUSDT verified successfully!`);
   } catch (error) {
-    handleVerificationError(error, "0x4D1D5fD48F7d6BAE9fd45955Edc292575B0D0D1f");
+    handleVerificationError(error, teatherUsdt.address);
   }
 
   // Verify SaleUtils library
   try {
     console.log(`\nVerifying SaleUtils library...`);
-    // await run('verify:verify', {
-    //   address: "0x23A92400A88B1F849D315471c2a3F1FDB311774d",
-    //   constructorArguments: [],
-    //   contract: "contracts/libraries/SaleUtils.sol:SaleUtils"
-    // });
+    await run('verify:verify', {
+      address: saleUtils.address,
+      constructorArguments: [],
+      contract: "contracts/libraries/SaleUtils.sol:SaleUtils"
+    });
     console.log(`SaleUtils verified successfully!`);
   } catch (error) {
-    handleVerificationError(error, "0x23A92400A88B1F849D315471c2a3F1FDB311774d");
+    handleVerificationError(error, saleUtils.address);
   }
 
   // Verify Sale contract
@@ -167,8 +168,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     // Format constructor arguments for verification
     const verificationArgs = [
       oracleAddress,
-      usdtAddress,
-      tokenAddress,
+      teatherUsdt.address,
+      presaleToken.address,
       minTokenToBuy.toString(),
       totalTokenSupply.toString(),
     ];
@@ -191,12 +192,9 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // Calculate 55% of total supply for the Sale contract (30% presale + 5% referral + 20% staking)
   const saleAllocation = totalTokenSupply * 55n / 100n;
 
-  // Get signer
-  const signer = await ethers.getSigner(deployer);
-
-  // Get token contract instances
+  // Get token contract instances - compatible with ethers v5 and hardhat-ethers
   const presaleTokenContract = await ethers.getContractFactory("PresaleToken")
-    .then(factory => factory.attach("0xeC5bd71EbC0f48024ED4aF9CC5abB66060198306"));
+    .then(factory => factory.attach(presaleToken.address));
 
   console.log(`\nApproving and transferring ${ethers.formatEther(saleAllocation)} tokens to Sale contract...`);
 
@@ -243,9 +241,9 @@ function handleVerificationError(error, contractAddress) {
     console.log(`Contract already verified!`);
   } else {
     console.error(`Verification error:`, error);
-    console.log(`\nYou may need to verify manually at https://sepolia.etherscan.io/address/${contractAddress}#code`);
+    console.log(`\nYou may need to verify manually at https://testnet.bscscan.com/address/${contractAddress}#code`);
   }
 }
 
-func.tags = ['Sale', 'Sepolia'];
+func.tags = ['Sale', 'BSCTestnet'];
 export default func;

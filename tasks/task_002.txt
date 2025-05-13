@@ -1,0 +1,25 @@
+# Task ID: 2
+# Title: Implement token purchase tests
+# Status: done
+# Dependencies: 1
+# Priority: high
+# Description: Test purchasing tokens with ETH and USDT
+# Details:
+Test purchasing tokens with both ETH and USDT payment methods, verifying correct token calculations and state changes
+
+# Test Strategy:
+Verify token balances before and after purchases, and check all relevant state variables and events
+
+# Subtasks:
+## 2.1. Test ETH purchases [done]
+### Dependencies: None
+### Description: Test buying tokens with ETH
+### Details:
+Test buying tokens with ETH with minimum amount, large amount, and near hardcap. Verify correct token calculation based on ETH price feed.
+
+## 2.2. Test USDT purchases [done]
+### Dependencies: None
+### Description: Test buying tokens with USDT
+### Details:
+Test buying tokens with USDT with minimum amount, large amount, and near hardcap. Verify correct token calculation.
+

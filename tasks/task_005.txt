@@ -1,0 +1,25 @@
+# Task ID: 5
+# Title: Implement combined functionality tests
+# Status: done
+# Dependencies: 1, 2, 3, 4
+# Priority: medium
+# Description: Test purchasing with both referral and staking
+# Details:
+Test the combined functionality of purchasing with both referral and staking options
+
+# Test Strategy:
+Verify all calculations, records, and state changes for the combined functionality
+
+# Subtasks:
+## 5.1. Test ETH purchase with referral and staking [done]
+### Dependencies: None
+### Description: Test buying with ETH, using a referrer, and immediate staking
+### Details:
+Test buying tokens with ETH, referral, and immediate staking. Verify all calculations and state changes.
+
+## 5.2. Test USDT purchase with referral and staking [done]
+### Dependencies: None
+### Description: Test buying with USDT, using a referrer, and immediate staking
+### Details:
+Test buying tokens with USDT, referral, and immediate staking. Verify all calculations and state changes.
+

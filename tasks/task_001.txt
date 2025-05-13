@@ -1,0 +1,41 @@
+# Task ID: 1
+# Title: Set up test environment
+# Status: done
+# Dependencies: None
+# Priority: high
+# Description: Prepare the testing environment for smart contract tests
+# Details:
+- Deploy test ERC20 tokens (Sale token and USDT)
+- Deploy Chainlink mock price feed for ETH/USD
+- Deploy and configure Sale contract with appropriate parameters
+- Fund contract with required token allocations (55% of supply)
+- Create test accounts with different roles (owner, buyers, referrers)
+
+# Test Strategy:
+Verify all components are properly deployed and initialized
+
+# Subtasks:
+## 1.1. Create ERC20 test tokens [done]
+### Dependencies: None
+### Description: Deploy test ERC20 tokens for Sale token and USDT
+### Details:
+Create mock ERC20 tokens for testing with appropriate supplies and decimals. USDT should have 6 decimals.
+
+## 1.2. Create mock price feed [done]
+### Dependencies: None
+### Description: Create a mock Chainlink price feed for ETH/USD
+### Details:
+Implement a mock Chainlink aggregator that returns a configurable ETH/USD price for testing
+
+## 1.3. Deploy Sale contract [done]
+### Dependencies: None
+### Description: Deploy the Sale contract with test parameters
+### Details:
+Deploy the Sale contract with the test tokens and price feed. Set appropriate parameters for testing.
+
+## 1.4. Configure test accounts [done]
+### Dependencies: None
+### Description: Set up test accounts with appropriate roles and balances
+### Details:
+Create and fund test accounts for different roles: owner, buyers, referrers, etc.
+
