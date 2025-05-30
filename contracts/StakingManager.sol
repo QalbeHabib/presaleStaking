@@ -171,22 +171,25 @@ contract StakingManager is ReferralManager {
             emit StakingStatusChanged(false, block.timestamp);
         }
         
-        // Update user stake
         ISaleStructs.StakeInfo storage userStake = userStakes[_user];
         
-        // If user already has a stake, handle appropriately
         if (userStake.stakedAmount > 0 && !userStake.hasWithdrawn) {
-            // If existing stake is still locked, cannot add to it
-            if (block.timestamp < userStake.unlockTimestamp) {
-                revert LockedStakeExists();
-            } else {
-                // Existing stake is unlocked, withdraw it first
+            // If existing stake is unlocked, withdraw it first
+            if (block.timestamp >= userStake.unlockTimestamp) {
                 _processUnlockedStake(_user, userStake);
+                _createNewStake(_user, _amount, userStake);
+            } else {
+                // If stake is still locked, add to existing stake and reset lock period
+                userStake.stakedAmount += _amount;
+                userStake.unlockTimestamp = block.timestamp + 365 days;
+                
+                // Emit event for the additional stake
+                emit TokensStaked(_user, _amount, block.timestamp, userStake.unlockTimestamp);
             }
+        } else {
+            // Create a new stake if user has no active stake
+            _createNewStake(_user, _amount, userStake);
         }
-        
-        // Create a new stake
-        _createNewStake(_user, _amount, userStake);
     }
     
     /**

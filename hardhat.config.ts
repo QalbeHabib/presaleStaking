@@ -15,7 +15,7 @@ const config: HardhatUserConfig = {
       mainnet: process.env.ETHERSCAN_API_KEY,
       sepolia: process.env.ETHERSCAN_API_KEY,
       goerli: process.env.ETHERSCAN_API_KEY,
-      // For BSC networks - using the same key 
+      // For BSC networks - using the same key
       bscTestnet: process.env.ETHERSCAN_API_KEY,
     },
     customChains: [
@@ -29,7 +29,7 @@ const config: HardhatUserConfig = {
       },
     ],
   },
-  
+
   paths: {
     sources: './contracts',
     tests: './test',

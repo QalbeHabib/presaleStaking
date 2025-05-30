@@ -53,11 +53,11 @@ async function checkAndWithdrawFunds() {
     if (error.data) {
       console.error("Error data:", error.data);
     }
+    }
   }
-}
 
 // Execute the function
-checkAndWithdrawFunds()
+  checkAndWithdrawFunds()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);

@@ -11,9 +11,9 @@ async function main() {
   console.log(`Network: ${network.name}`);
 
   // Contract addresses from deployment
-  const SALE_ADDRESS = "0x1605B6d5aFA7c6a7D2Dd5cd65A95e1C5dF0A867d";
-  const TOKEN_ADDRESS = "0x8f55e31c026Dc225e3497BE3B6B8f8A5123155CC";
-  const USDT_ADDRESS = "0x4D1D5fD48F7d6BAE9fd45955Edc292575B0D0D1f";
+  const SALE_ADDRESS = "0xe4e0fb34C8ed82b47571a447f15642c429d3bA72";
+  const TOKEN_ADDRESS = "0x3f34BA21fde95C13d0ff8e296241eA39b426283A";
+  const USDT_ADDRESS = "0x9253C7b60DA95673c9Ed31f2386d806Dbe02e3F8";
 
   console.log(`Loading contracts...`);
   const Sale = await ethers.getContractFactory("Sale");
@@ -35,26 +35,26 @@ async function main() {
   // 1. Transfer tokens to Sale contract (55% of total supply)
   console.log("\n1. Transferring tokens to Sale contract...");
   
-  // Calculate 55% of total supply (30% presale + 5% referral + 20% staking)
-  const saleAllocation = totalSupply * 55n / 100n;
-  console.log(`Allocation amount: ${ethers.formatEther(saleAllocation)} PRESALE tokens`);
+  // // Calculate 55% of total supply (30% presale + 5% referral + 20% staking)
+  // const saleAllocation = totalSupply * 55n / 100n;
+  // console.log(`Allocation amount: ${ethers.formatEther(saleAllocation)} PRESALE tokens`);
   
-  // Check deployer balance
-  const deployerBalance = await tokenContract.balanceOf(deployer.address);
-  console.log(`Deployer balance: ${ethers.formatEther(deployerBalance)} PRESALE tokens`);
+  // // Check deployer balance
+  // const deployerBalance = await tokenContract.balanceOf(deployer.address);
+  // console.log(`Deployer balance: ${ethers.formatEther(deployerBalance)} PRESALE tokens`);
   
-  if (deployerBalance < saleAllocation) {
-    console.error("Insufficient balance for allocation");
-    return;
-  }
+  // if (deployerBalance < saleAllocation) {
+  //   console.error("Insufficient balance for allocation");
+  //   return;
+  // }
 
   try {
     // Transfer tokens to Sale contract
-    console.log("Transferring tokens...");
-    const tx = await tokenContract.transfer(SALE_ADDRESS, saleAllocation);
-    console.log(`Transaction hash: ${tx.hash}`);
-    await tx.wait();
-    console.log("Tokens transferred successfully!");
+    // console.log("Transferring tokens...");
+    // const tx = await tokenContract.transfer(SALE_ADDRESS, saleAllocation);
+    // console.log(`Transaction hash: ${tx.hash}`);
+    // await tx.wait();
+    // console.log("Tokens transferred successfully!");
     
     // Verify final balances
     const saleBalance = await tokenContract.balanceOf(SALE_ADDRESS);

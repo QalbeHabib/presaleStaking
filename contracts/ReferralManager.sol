@@ -177,6 +177,10 @@ contract ReferralManager is SaleBase {
      * @dev Claim referral rewards
      */
     function claimReferralRewards() public nonReentrant returns (bool) {
+        // User can claim referral rewards only when presale is over
+        require(!presale[presaleId].Active || presale[presaleId].endTime > 0, "Presale still active");
+        require(presale[presaleId].isEnableClaim, "Claiming not enabled");
+
         uint256 amount = getClaimableReferralRewards(msg.sender);
         require(amount > 0, "No rewards to claim");
         

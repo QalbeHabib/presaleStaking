@@ -404,6 +404,8 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
         SaleUtils.sendValue(payable(fundReceiver), balance);
     }
 
+
+
     /**
      * @dev Modifier to check presale ID validity
      */
