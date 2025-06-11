@@ -140,26 +140,22 @@ contract ReferralManager is SaleBase {
      * @param _tokenAmount Amount of tokens purchased
      */
     function processReferralRewards(address _user, uint256 _tokenAmount) public {
-        if (_tokenAmount >= MINIMUM_PURCHASE_FOR_REFERRAL) {
-            hasQualifiedPurchase[_user] = true;
+        address referrer = referralData[_user].referrer;
+        if (referrer != address(0)) {
+            // Calculate rewards
+            uint256 referrerReward = _tokenAmount * referralRewardPercentage / 100;
+            uint256 totalNewRewards = referrerReward * 2; // Both get same reward
             
-            address referrer = referralData[_user].referrer;
-            if (referrer != address(0)) {
-                // Calculate rewards
-                uint256 referrerReward = _tokenAmount * referralRewardPercentage / 100;
-                uint256 totalNewRewards = referrerReward * 2; // Both get same reward
+            // Update rewards if under max cap
+            if (totalReferralRewardsIssued + totalNewRewards <= maxReferralRewards) {
+                // Update referral data structs
+                referralData[referrer].totalReferralRewards += referrerReward;
+                referralData[_user].totalReferralRewards += referrerReward;
                 
-                // Update rewards if under max cap
-                if (totalReferralRewardsIssued + totalNewRewards <= maxReferralRewards) {
-                    // Update referral data structs
-                    referralData[referrer].totalReferralRewards += referrerReward;
-                    referralData[_user].totalReferralRewards += referrerReward;
-                    
-                    // Update global rewards counter
-                    totalReferralRewardsIssued += totalNewRewards;
-                    
-                    emit ReferralRewardsAdded(referrer, _user, referrerReward, referrerReward, block.timestamp);
-                }
+                // Update global rewards counter
+                totalReferralRewardsIssued += totalNewRewards;
+                
+                emit ReferralRewardsAdded(referrer, _user, referrerReward, referrerReward, block.timestamp);
             }
         }
     }
