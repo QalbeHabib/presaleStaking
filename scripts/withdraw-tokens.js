@@ -11,7 +11,7 @@ async function main() {
   // ===================================================
   // IMPORTANT: UPDATE THESE ADDRESSES
   // ===================================================
-  const SALE_ADDRESS = "0x98756335Fc967785FC5Bc5b8A09bbb08CB2dD6bD";
+  const SALE_ADDRESS = "0x92E1bcCDF46f202E7f5cf0b31beD9f0bBf61230a";
   const TOKEN_ADDRESS = "0xddAE530E193C5B287f5Ff3dE62da5D2e1b3722e2";
   // ===================================================
 

@@ -11,7 +11,7 @@ async function main() {
   console.log(`Network: ${network.name}`);
 
   // Contract addresses from deployment
-  const SALE_ADDRESS = "0x98756335Fc967785FC5Bc5b8A09bbb08CB2dD6bD";
+  const SALE_ADDRESS = "0x92E1bcCDF46f202E7f5cf0b31beD9f0bBf61230a";
   const TOKEN_ADDRESS = "0xddAE530E193C5B287f5Ff3dE62da5D2e1b3722e2";
   const USDT_ADDRESS = "0x4Df3306E47D620CbadAAB4a8cEB3AA4d7c5caB74";
 

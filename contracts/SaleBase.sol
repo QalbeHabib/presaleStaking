@@ -300,7 +300,10 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
     }
 
     /**
-     * @dev Helper funtion to get ETH price for given amount
+     * @dev Helper function to get the ETH cost for a given number of WHOLE tokens.
+     * @param _id The ID of the presale.
+     * @param amount The number of whole tokens to calculate the price for (e.g., 150 for 150 tokens).
+     * @return ethAmount The cost in ETH (with 18 decimals).
      */
     function ethBuyHelper(uint256 _id, uint256 amount)
         external
@@ -308,12 +311,17 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
         checkPresaleId(_id)
         returns (uint256 ethAmount)
     {
-        uint256 usdPrice = (amount * presale[_id].price);
-        ethAmount = (usdPrice * ETH_MULTIPLIER) / (getLatestPrice() * 10**IERC20Metadata(SaleToken).decimals());
+        uint256 rawTokenAmount = amount * 10**18;
+        uint256 usdAmount = (rawTokenAmount * 10**6) / presale[_id].price;
+        // Convert the USDT amount to the equivalent ETH amount
+        ethAmount = (usdAmount * 10**30) / getLatestPrice();
     }
 
     /**
-     * @dev Helper funtion to get USDT price for given amount
+     * @dev Helper function to get the USDT cost for a given number of WHOLE tokens.
+     * @param _id The ID of the presale.
+     * @param amount The number of whole tokens to calculate the price for (e.g., 150 for 150 tokens).
+     * @return usdPrice The cost in USDT (with 6 decimals).
      */
     function usdtBuyHelper(uint256 _id, uint256 amount)
         external
@@ -321,8 +329,9 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
         checkPresaleId(_id)
         returns (uint256 usdPrice)
     {
-        usdPrice = (amount * presale[_id].price) / 10**IERC20Metadata(SaleToken).decimals();
-    } 
+        uint256 rawTokenAmount = amount * 10**18;
+        usdPrice = (rawTokenAmount * 10**6) / presale[_id].price;
+    }
 
     /**
      * @dev Helper funtion to get claimable tokens for a given presale
