@@ -322,7 +322,7 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
         returns (uint256 usdPrice)
     {
         usdPrice = (amount * presale[_id].price) / 10**IERC20Metadata(SaleToken).decimals();
-    }
+    } 
 
     /**
      * @dev Helper funtion to get claimable tokens for a given presale
@@ -404,7 +404,16 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
         SaleUtils.sendValue(payable(fundReceiver), balance);
     }
 
+    /**
+     * @dev Calculate price for given tokens
+     */
+    function calculatePriceForTokens(uint256 desiredTokens, uint256 usdtAmount) public pure returns (uint256) {
+        require(desiredTokens > 0, "Desired tokens must be greater than zero");
+        require(usdtAmount > 0, "USDT amount must be greater than zero");
 
+        uint256 price = usdtAmount / desiredTokens;
+        return price; 
+    }
 
     /**
      * @dev Modifier to check presale ID validity

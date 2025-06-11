@@ -11,9 +11,9 @@ async function main() {
   console.log(`Network: ${network.name}`);
 
   // Contract addresses from deployment
-  const SALE_ADDRESS = "0xe4e0fb34C8ed82b47571a447f15642c429d3bA72";
-  const TOKEN_ADDRESS = "0x3f34BA21fde95C13d0ff8e296241eA39b426283A";
-  const USDT_ADDRESS = "0x9253C7b60DA95673c9Ed31f2386d806Dbe02e3F8";
+  const SALE_ADDRESS = "0x785a0893F1657c5bB1106E250695b7a25815ad3a";
+  const TOKEN_ADDRESS = "0xFfd1531235CBc96d5232afb4774A427753D9b4E7";
+  const USDT_ADDRESS = "0x69304c4900EB9f3d2e412465Db1275A50B96d036";
 
   console.log(`Loading contracts...`);
   const Sale = await ethers.getContractFactory("Sale");
@@ -36,52 +36,52 @@ async function main() {
   console.log("\n1. Transferring tokens to Sale contract...");
   
   // // Calculate 55% of total supply (30% presale + 5% referral + 20% staking)
-  // const saleAllocation = totalSupply * 55n / 100n;
-  // console.log(`Allocation amount: ${ethers.formatEther(saleAllocation)} PRESALE tokens`);
+  const saleAllocation = totalSupply * 55n / 100n;
+  console.log(`Allocation amount: ${ethers.formatEther(saleAllocation)} PRESALE tokens`);
   
-  // // Check deployer balance
-  // const deployerBalance = await tokenContract.balanceOf(deployer.address);
-  // console.log(`Deployer balance: ${ethers.formatEther(deployerBalance)} PRESALE tokens`);
+  // Check deployer balance
+  const deployerBalance = await tokenContract.balanceOf(deployer.address);
+  console.log(`Deployer balance: ${ethers.formatEther(deployerBalance)} PRESALE tokens`);
   
   // if (deployerBalance < saleAllocation) {
   //   console.error("Insufficient balance for allocation");
   //   return;
   // }
 
-  try {
-    // Transfer tokens to Sale contract
-    // console.log("Transferring tokens...");
-    // const tx = await tokenContract.transfer(SALE_ADDRESS, saleAllocation);
-    // console.log(`Transaction hash: ${tx.hash}`);
-    // await tx.wait();
-    // console.log("Tokens transferred successfully!");
+  // try {
+  //   // Transfer tokens to Sale contract
+  //   console.log("Transferring tokens...");
+  //   const tx = await tokenContract.transfer(SALE_ADDRESS, saleAllocation);
+  //   console.log(`Transaction hash: ${tx.hash}`);
+  //   await tx.wait();
+  //   console.log("Tokens transferred successfully!");
     
-    // Verify final balances
-    const saleBalance = await tokenContract.balanceOf(SALE_ADDRESS);
-    console.log(`Sale contract balance: ${ethers.formatEther(saleBalance)} PRESALE tokens`);
-  } catch (error) {
-    console.error("Failed to transfer tokens:", error);
-    return;
-  }
+  //   // Verify final balances
+  //   const saleBalance = await tokenContract.balanceOf(SALE_ADDRESS);
+  //   console.log(`Sale contract balance: ${ethers.formatEther(saleBalance)} PRESALE tokens`);
+  // } catch (error) {
+  //   console.error("Failed to transfer tokens:", error);
+  //   return;
+  // }
 
   // 2. Call preFundContract to enable presale, referral, and staking
-  console.log("\n2. Pre-funding contract...");
-  try {
-    const preFundTx = await saleContract.preFundContract();
-    console.log(`Transaction hash: ${preFundTx.hash}`);
-    await preFundTx.wait();
-    console.log("Contract pre-funded successfully!");
-  } catch (error) {
-    console.error("Failed to pre-fund contract:", error);
-    return;
-  }
+  // console.log("\n2. Pre-funding contract...");
+  // try {
+  //   const preFundTx = await saleContract.preFundContract();
+  //   console.log(`Transaction hash: ${preFundTx.hash}`);
+  //   await preFundTx.wait();
+  //   console.log("Contract pre-funded successfully!");
+  // } catch (error) {
+  //   console.error("Failed to pre-fund contract:", error);
+  //   return;
+  // }
 
   // 3. Create a presale with createPresale()
   console.log("\n3. Creating presale...");
   
   // Presale parameters
-  const presalePrice = ethers.parseUnits("0.01", usdtDecimals); // 0.01 USDT per token
-  const nextStagePrice = ethers.parseUnits("0.02", usdtDecimals); // 0.02 USDT per token
+  const presalePrice = ethers.parseUnits("0.006666", usdtDecimals); // 0.01 USDT per token
+  const nextStagePrice = ethers.parseUnits("0.007142", usdtDecimals); // 0.02 USDT per token
   const hardcap = ethers.parseUnits("30000000", usdtDecimals); // 30,000,000 USDT
   const tokensToSell = totalSupply * 30n / 100n; // 30% of total supply for presale
   
@@ -90,9 +90,9 @@ async function main() {
   console.log(`Tokens to sell in presale: ${ethers.formatEther(tokensToSell)} PRESALE tokens`);
   
   try {
-    const createPresaleTx = await saleContract.createPresale(presalePrice, nextStagePrice, tokensToSell, hardcap);
-    console.log(`Transaction hash: ${createPresaleTx.hash}`);
-    await createPresaleTx.wait();
+    // const createPresaleTx = await saleContract.createPresale(presalePrice, nextStagePrice, tokensToSell, hardcap);
+    // console.log(`Transaction hash: ${createPresaleTx.hash}`);
+    // await createPresaleTx.wait();
     console.log("Presale created successfully!");
   } catch (error) {
     console.error("Failed to create presale:", error);
@@ -100,12 +100,12 @@ async function main() {
   }
 
   // 4. Start the presale with startPresale()
-  console.log("\n4. Starting presale...");
+  // console.log("\n4. Starting presale...");
   try {
-    const startPresaleTx = await saleContract.startPresale();
-    console.log(`Transaction hash: ${startPresaleTx.hash}`);
-    await startPresaleTx.wait();
-    console.log("Presale started successfully!");
+    // const startPresaleTx = await saleContract.startPresale();
+    // console.log(`Transaction hash: ${startPresaleTx.hash}`);
+    // await startPresaleTx.wait();
+    // console.log("Presale started successfully!");
   } catch (error) {
     console.error("Failed to start presale:", error);
     return;

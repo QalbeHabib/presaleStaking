@@ -22,7 +22,7 @@ contract PresaleToken is ERC20, Ownable {
         string memory symbol,
         uint256 initialSupply
     ) ERC20(name, symbol) Ownable(msg.sender) {
-        _decimals = 18; // Default to 6 decimals
+        _decimals = 18; // Default to 18 decimals
         _mint(msg.sender, initialSupply);
     }
 

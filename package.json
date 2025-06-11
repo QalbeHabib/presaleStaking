@@ -26,7 +26,8 @@
     "local": "hardhat node",
     "test:local": "hardhat run scripts/local-deploy.js --network localhost",
     "deploy:local": "hardhat run scripts/local-deploy.js --network hardhat",
-    "prefund:check": "hardhat run scripts/debug-prefund.js --network"
+    "prefund:check": "hardhat run scripts/debug-prefund.js --network",
+    "setup:sepolia": "hardhat run scripts/sepolia-setup.js --network sepolia"
   },
   "dependencies": {
     "@chainlink/contracts": "0.4.2",

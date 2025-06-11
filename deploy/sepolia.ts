@@ -33,39 +33,33 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // Total token supply - 100 billion tokens with 18 decimals
   const totalTokenSupply = ethers.parseEther('100000000000');
 
-  // const presaleToken = await deployAndLog('PresaleToken', {
-  //   from: deployer,
-  //   args: ["Presale Token", "PRESALE", totalTokenSupply],
-  //   skipIfAlreadyDeployed: true,
-  //   log: true,
-  // });
+  const presaleToken = await deployAndLog('PresaleToken', {
+    from: deployer,
+    args: ['Presale Token', 'PRESALE', totalTokenSupply.toString()],
+    skipIfAlreadyDeployed: true,
+    log: true,
+  });
 
   console.log(`\nDeploying TeatherUSDT...`);
   // Deploy USDT with 6 decimals and mint 10 million for testing
   const usdtInitialSupply = ethers.parseUnits('100000000000', 6); // 10 million with 6 decimals
 
-  // const teatherUsdt = await deployAndLog('TeatherUSDT', {
-  //   from: deployer,
-  //   args: ["Tether USD", "USDT", usdtInitialSupply],
-  //   skipIfAlreadyDeployed: true,
-  //   log: true,
-  // });
-
-  // console.log(`PresaleToken deployed at: ${presaleToken.address}`);
-  // console.log(`TeatherUSDT deployed at: ${teatherUsdt.address}`);
+  const teatherUsdt = await deployAndLog('TeatherUSDT', {
+    from: deployer,
+    args: ['Tether USD', 'USDT', usdtInitialSupply.toString()],
+    skipIfAlreadyDeployed: true,
+    log: true,
+  });
 
   // ===================================================
   // Deploy SaleUtils Library
   // ===================================================
-  // console.log(`\nDeploying SaleUtils library...`);
-  // const saleUtils = await deployAndLog('SaleUtils', {
-  //   from: deployer,
-  //   args: [],
-  //   skipIfAlreadyDeployed: true,
-  //   log: true,
-  // });
-
-  // console.log(`SaleUtils deployed at: ${saleUtils.address}`);
+  const saleUtils = await deployAndLog('SaleUtils', {
+    from: deployer,
+    args: [],
+    skipIfAlreadyDeployed: true,
+    log: true,
+  });
 
   // ===================================================
   // Deploy Sale Contract
@@ -76,11 +70,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   console.log(`Using oracle address: ${oracleAddress}`);
 
   // Token addresses - use our deployed tokens
-  const tokenAddress = "0xeC5bd71EbC0f48024ED4aF9CC5abB66060198306"
-  const usdtAddress = "0x3454C6F3005437D97A77686F6F28cc61E2330Be0"
-  const saleUtilsAddress = "0x23A92400A88B1F849D315471c2a3F1FDB311774d"
-  console.log(`Using token address: ${tokenAddress}`);
-  console.log(`Using USDT address: ${usdtAddress}`);
 
   // Minimum tokens to buy
   const minTokenToBuy = ethers.parseEther('10');
@@ -89,13 +78,13 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // Prepare constructor arguments
   const constructorArgs = [
     oracleAddress,
-    usdtAddress,
-    tokenAddress,
-    minTokenToBuy,
-    totalTokenSupply,
+    teatherUsdt.address,
+    presaleToken.address,
+    minTokenToBuy.toString(),
+    totalTokenSupply.toString(),
   ];
 
-  // Deploy the main Sale contract 
+  // Deploy the main Sale contract
   console.log(`\nDeploying Sale contract...`);
   const sale = await deployAndLog('Sale', {
     from: deployer,
@@ -103,8 +92,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     skipIfAlreadyDeployed: true,
     log: true,
     libraries: {
-      SaleUtils: saleUtilsAddress
-    }
+      SaleUtils: saleUtils.address,
+    },
   });
 
   console.log(`\nSale contract deployed at: ${sale.address}`);
@@ -125,127 +114,93 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // Verify PresaleToken
   try {
     console.log(`\nVerifying PresaleToken...`);
-    // await run('verify:verify', {
-    //   address: "0xeC5bd71EbC0f48024ED4aF9CC5abB66060198306",
-    //   constructorArguments: ["Presale Token", "PRESALE", totalTokenSupply.toString()],
-    //   contract: "contracts/test/PresaleToken.sol:PresaleToken"
-    // });
-    // console.log(`PresaleToken verified successfully!`);
+    await run('verify:verify', {
+      address: presaleToken.address,
+      constructorArguments: ['Presale Token', 'PRESALE', totalTokenSupply.toString()],
+      contract: 'contracts/test/PresaleToken.sol:PresaleToken',
+    });
+    console.log(`PresaleToken verified successfully!`);
   } catch (error) {
-    handleVerificationError(error, "0xeC5bd71EbC0f48024ED4aF9CC5abB66060198306");
+    console.error(error);
   }
 
   // Verify TeatherUSDT
   try {
-    // console.log(`\nVerifying TeatherUSDT...`);
-    // await run('verify:verify', {
-    //   address: "0x4D1D5fD48F7d6BAE9fd45955Edc292575B0D0D1f",
-    //   constructorArguments: ["Tether USD", "USDT", usdtInitialSupply.toString()],
-    //   contract: "contracts/test/TeatherUSDT.sol:TeatherUSDT"
-    // });
-    // console.log(`TeatherUSDT verified successfully!`);
+    await run('verify:verify', {
+      address: teatherUsdt.address,
+      constructorArguments: ['Tether USD', 'USDT', usdtInitialSupply.toString()],
+      contract: 'contracts/test/TeatherUSDT.sol:TeatherUSDT',
+    });
+    console.log(`TeatherUSDT verified successfully!`);
   } catch (error) {
-    handleVerificationError(error, "0x4D1D5fD48F7d6BAE9fd45955Edc292575B0D0D1f");
+    console.error(error);
   }
 
   // Verify SaleUtils library
   try {
     console.log(`\nVerifying SaleUtils library...`);
-    // await run('verify:verify', {
-    //   address: "0x23A92400A88B1F849D315471c2a3F1FDB311774d",
-    //   constructorArguments: [],
-    //   contract: "contracts/libraries/SaleUtils.sol:SaleUtils"
-    // });
+    await run('verify:verify', {
+      address: saleUtils.address,
+      constructorArguments: [],
+      contract: 'contracts/libraries/SaleUtils.sol:SaleUtils',
+    });
     console.log(`SaleUtils verified successfully!`);
   } catch (error) {
-    handleVerificationError(error, "0x23A92400A88B1F849D315471c2a3F1FDB311774d");
+    console.error(error);
   }
 
   // Verify Sale contract
   try {
     console.log(`\nVerifying Sale contract...`);
-    // Format constructor arguments for verification
-    const verificationArgs = [
-      oracleAddress,
-      usdtAddress,
-      tokenAddress,
-      minTokenToBuy.toString(),
-      totalTokenSupply.toString(),
-    ];
-
+    // Use the same string arguments as deployment
     await run('verify:verify', {
       address: sale.address,
-      constructorArguments: verificationArgs
+      constructorArguments: constructorArgs,
     });
     console.log(`Sale contract verified successfully!`);
   } catch (error) {
-    handleVerificationError(error, sale.address);
+    console.error(error);
   }
 
   // ===================================================
   // Transfer Tokens to Sale Contract
   // ===================================================
 
-  console.log(`\nPreparing tokens for presale...`);
+  // console.log(`\nPreparing tokens for presale...`);
 
   // Calculate 55% of total supply for the Sale contract (30% presale + 5% referral + 20% staking)
-  const saleAllocation = totalTokenSupply * 55n / 100n;
+  // const saleAllocation = (totalTokenSupply * 55n) / 100n;
 
-  // Get signer
-  const signer = await ethers.getSigner(deployer);
+  // // Get signer
+  // const signer = await ethers.getSigner(deployer);
 
   // Get token contract instances
-  const presaleTokenContract = await ethers.getContractFactory("PresaleToken")
-    .then(factory => factory.attach("0xeC5bd71EbC0f48024ED4aF9CC5abB66060198306"));
+  // console.log(
+  //   `\nApproving and transferring ${ethers.formatEther(saleAllocation)} tokens to Sale contract...`,
+  // );
+  // const saleContract = await ethers.getContractAt('Sale', sale.address);
+  // const tokenContract = await ethers.getContractAt('PresaleToken', presaleToken.address);
+  // const usdtContract = await ethers.getContractAt('TeatherUSDT', teatherUsdt.address);
 
-  console.log(`\nApproving and transferring ${ethers.formatEther(saleAllocation)} tokens to Sale contract...`);
+  // // Check token balance
+  // const deployerBalance = await tokenContract.balanceOf(deployer);
+  // console.log(`Deployer balance: ${ethers.formatEther(deployerBalance)} PRESALE`);
 
-  // Check token balance
-  const deployerBalance = await presaleTokenContract.balanceOf(deployer);
-  console.log(`Deployer balance: ${ethers.formatEther(deployerBalance)} PRESALE`);
+  // if (deployerBalance < saleAllocation) {
+  //   console.error('Insufficient balance for allocation');
+  //   return;
+  // }
 
-  try {
-    // Transfer tokens to Sale contract
-    const tx = await presaleTokenContract.transfer(sale.address, saleAllocation);
-    console.log(`Transaction hash: ${tx.hash}`);
-    await tx.wait();
-    console.log(`Successfully transferred tokens to Sale contract`);
+  // try {
+  //   // Transfer tokens to Sale contract
+  //   // const tx = await tokenContract.transfer(sale.address, saleAllocation);
+  //   // console.log(`
 
-    // Check Sale contract balance
-    const saleBalance = await presaleTokenContract.balanceOf(sale.address);
-    console.log(`Sale contract balance: ${ethers.formatEther(saleBalance)} PRESALE`);
-  } catch (error) {
-    console.error("Failed to transfer tokens:", error);
-    console.log(`\nPlease manually transfer ${ethers.formatEther(saleAllocation)} tokens to Sale contract at ${sale.address}`);
-  }
-
-  console.log(`\n=== Deployment Summary ===`);
-  console.log(`PresaleToken address: 0xeC5bd71EbC0f48024ED4aF9CC5abB66060198306`);
-  console.log(`TeatherUSDT address: 0x4D1D5fD48F7d6BAE9fd45955Edc292575B0D0D1f`);
-  console.log(`SaleUtils library: 0x23A92400A88B1F849D315471c2a3F1FDB311774d`);
-  console.log(`Sale contract address: ${sale.address}`);
-  console.log(`Oracle address: ${oracleAddress}`);
-
-  console.log('\nNext steps:');
-  console.log('1. Call preFundContract() on the Sale contract to enable presale, referral, and staking');
-  console.log('2. Create a presale with createPresale()');
-  console.log('3. Start the presale with startPresale()');
-  console.log('\nSample presale parameters:');
-  console.log('- Price: 0.01 USDT per token');
-  console.log('- Next stage price: 0.02 USDT per token');
-  console.log('- Tokens to sell: 30% of total supply');
-  console.log('- USDT hardcap: 30,000,000 USDT');
+  console.log(`- Sale: ${sale.address}`);
+  console.log(`- Token: ${presaleToken.address}`);
+  console.log(`- USDT: ${teatherUsdt.address}`);
+  console.log(`\nDashboard: https://sepolia.etherscan.io/address/${sale.address}#code`);
 };
-
-// Helper function to handle verification errors
-function handleVerificationError(error, contractAddress) {
-  if (error.message && error.message.includes('already verified')) {
-    console.log(`Contract already verified!`);
-  } else {
-    console.error(`Verification error:`, error);
-    console.log(`\nYou may need to verify manually at https://sepolia.etherscan.io/address/${contractAddress}#code`);
-  }
-}
 
 func.tags = ['Sale', 'Sepolia'];
 export default func;
