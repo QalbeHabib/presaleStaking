@@ -296,7 +296,7 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
         checkPresaleId(_id)
         returns (uint256 _tokens)
     {
-        _tokens = (amount * (10**18)) / presale[_id].price;
+        _tokens = (amount * presale[_id].price) / (10**6);
     }
 
     /**
@@ -405,14 +405,17 @@ contract SaleBase is ReentrancyGuard, Ownable, Pausable {
     }
 
     /**
-     * @dev Calculate price for given tokens
+     * @dev Calculates the rate to set for a desired token amount.
+     * This is based on the modified formula: tokens = (amount * rate) / 10**6
      */
     function calculatePriceForTokens(uint256 desiredTokens, uint256 usdtAmount) public pure returns (uint256) {
         require(desiredTokens > 0, "Desired tokens must be greater than zero");
         require(usdtAmount > 0, "USDT amount must be greater than zero");
 
-        uint256 price = usdtAmount / desiredTokens;
-        return price; 
+        // We solve for the 'price' (which is now a rate):
+        // rate = (desiredTokens * 10**18 * 10**6) / usdtAmount
+        uint256 price = (desiredTokens * 10**24) / usdtAmount;
+        return price;
     }
 
     /**
